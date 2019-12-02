@@ -1,17 +1,17 @@
 from pathlib import Path
+from copy import deepcopy
 
 class IntCode:
     def __init__(self, program):
         self.program = program
 
     def parse(self):
-        return list(map(int, self.program.strip().split(",")))
+        return list(map(int, deepcopy(self.program).strip().split(",")))
 
-    def run(self, alarm=False):
+    def run(self, input_data):
         state = self.parse()
-        if alarm:
-            state[1] = 12
-            state[2] = 2
+        state[1] = input_data[0]
+        state[2] = input_data[1]
 
         position = 0
         while True:
@@ -41,10 +41,29 @@ class IntCode:
                 print(f"ERROR: {position}, {opcode}")
                 break
 
-
         return state
+
+    def find(self, search):
+        found = False
+        noun = -1
+        verb = -1
+        for y in range(100):
+            if found:
+                break
+
+            for x in range(100):
+                result = self.run([x, y])
+                if result[0] == search:
+                    found = True
+                    noun, verb = x, y
+                    break
+
+        return 100 * noun + verb
 
 if __name__ == "__main__":
     ic = IntCode(Path("aoc2.txt").read_text())
-    result = ic.run(True)
-    print("Part 1:", result[0])
+    result1 = ic.run([12, 2])
+    print("Part 1:", result1[0])
+
+    result2 = ic.find(19690720)
+    print("Part 2:", result2)
