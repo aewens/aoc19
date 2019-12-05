@@ -72,11 +72,41 @@ class IntCode:
 
             elif opcode == 4:
                 input1 = self.get_value(state, position, 1, modes)
-                if not quit:
+                if not quiet:
                     print(f"-> {input1}")
 
                 outputs.append(input1)
                 position = position + 2
+
+            elif opcode == 5:
+                input1 = self.get_value(state, position, 1, modes)
+                input2 = self.get_value(state, position, 2, modes)
+                if input1 != 0:
+                    position = input2
+
+                else:
+                    position = position + 3
+
+            elif opcode == 6:
+                input1 = self.get_value(state, position, 1, modes)
+                input2 = self.get_value(state, position, 2, modes)
+                if input1 == 0:
+                    position = input2
+
+                else:
+                    position = position + 3
+
+            elif opcode == 7:
+                input1 = self.get_value(state, position, 1, modes)
+                input2 = self.get_value(state, position, 2, modes)
+                self.set_value(state, position, 3, 1 if input1 < input2 else 0)
+                position = position + 4
+
+            elif opcode == 8:
+                input1 = self.get_value(state, position, 1, modes)
+                input2 = self.get_value(state, position, 2, modes)
+                self.set_value(state, position, 3, 1 if input1 == input2 else 0)
+                position = position + 4
 
             elif opcode == 99:
                 break
@@ -92,5 +122,9 @@ class IntCode:
 
 if __name__ == "__main__":
     ic = IntCode(Path("aoc5.txt").read_text())
+
     result1 = ic.run(quiet=True)
     print("Part 1", result1[-1])
+
+    result2 = ic.run(quiet=True)
+    print("Part 2", result2[-1])
