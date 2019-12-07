@@ -1,6 +1,8 @@
 from pathlib import Path
 from copy import deepcopy
 from itertools import permutations
+from threading import Thread
+from queue import Queue
 
 class IntCode:
     def __init__(self, program):
@@ -47,10 +49,13 @@ class IntCode:
         result_position = state[position + offset]
         state[result_position] = value
 
-    def run(self, input_codes, quiet=False):
+    def run(self, input_codes, quiet=False, stream=None):
         state = self.parse()
         position = 0
         outputs = list()
+        if stream:
+            reader, writer = stream
+
         while True:
             settings = str(state[position])
             modes, opcode = settings[:-2][::-1], int(settings[-2:])
@@ -68,13 +73,17 @@ class IntCode:
                 position = position + 4
 
             elif opcode == 3:
-                self.set_value(state, position, 1, input_codes.pop(0))
+                input_code = reader.get() if stream else input_codes.pop(0)
+                self.set_value(state, position, 1, input_code)
                 position = position + 2
 
             elif opcode == 4:
                 input1 = self.get_value(state, position, 1, modes)
                 if not quiet:
                     print(f"-> {input1}")
+
+                if stream:
+                    writer.put(input1)
 
                 outputs.append(input1)
                 position = position + 2
@@ -116,18 +125,41 @@ class IntCode:
                 print(f"ERROR: {position}, {opcode}")
                 break
 
+        if stream:
+            writer.put(outputs[-1])
+
         return outputs
 
-    def solve(self, init_input_codes, quiet=False):
+    def solve(self, seq_range, init_input_codes, quiet=False, stream=False):
         max_signal = -1
         max_sequence = None
-        for sequence in permutations(range(5), 5):
-            input_codes = init_input_codes
-            for phase_setting in sequence:
-                phase_input_codes = [phase_setting] + input_codes
-                input_codes = self.run(phase_input_codes, quiet=quiet)
+        for sequence in permutations(seq_range, len(seq_range)):
+            if stream:
+                procs = list()
+                streams = [Queue() for i in range(len(sequence))]
+                for s, phase_setting in enumerate(sequence):
+                    reader = streams[s]
+                    writer = streams[(s + 1) % len(streams)]
+                    reader.put(phase_setting)
+                    args = list(), quiet, (reader, writer)
+                    proc = Thread(target=self.run, args=args)
+                    procs.append(proc)
+                    proc.start()
 
-            signal = input_codes[0]
+                streams[0].put(init_input_codes[0])
+                for proc in procs:
+                    proc.join()
+
+                signal = streams[0].get()
+
+            else:
+                input_codes = init_input_codes
+                for phase_setting in sequence:
+                    phase_input_codes = [phase_setting] + input_codes
+                    input_codes = self.run(phase_input_codes, quiet=quiet)
+
+                signal = input_codes[0]
+
             if signal > max_signal:
                 max_signal = signal
                 max_sequence = sequence
@@ -137,5 +169,8 @@ class IntCode:
 if __name__ == "__main__":
     ic = IntCode(Path("aoc7.txt").read_text())
 
-    result1 = ic.solve([0], quiet=True)
+    result1 = ic.solve(list(range(5)), [0], quiet=True)
     print("Part 1:", result1[0])
+
+    result2 = ic.solve(list(range(5, 10)), [0], quiet=True, stream=True)
+    print("Part 2:", result2[0])
