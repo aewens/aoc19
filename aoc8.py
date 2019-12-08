@@ -34,6 +34,22 @@ def get_layer_data(layers, index):
     twos = layer_digit_count(layer, 2)
     return ones * twos
 
+def display_image(layers, width, height):
+    layer_size = width * height
+    pixels = [list() for ls in range(layer_size)]
+    for layer in layers:
+        for d, digit in enumerate(layer):
+            if digit != 2:
+                pixels[d].append(digit)
+
+    image = list()
+    pixel_row = list()
+    for pixel in pixels:
+        pixel_row.append(" " if pixel[0] == 0 else "@")
+        if len(pixel_row) == width:
+            print("".join(pixel_row))
+            pixel_row = list()
+
 if __name__ == "__main__":
     dsn_data = Path("aoc8.txt").read_text()
     image_width = 25
@@ -42,3 +58,5 @@ if __name__ == "__main__":
     layer_index = fewest_zeros(image_layers)
     result1 = get_layer_data(image_layers, layer_index)
     print("Part 1:", result1)
+    print("Part 2:")
+    display_image(image_layers, image_width, image_height)
