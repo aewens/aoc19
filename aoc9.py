@@ -181,6 +181,7 @@ if __name__ == "__main__":
     ic = IntCode(Path("aoc9.txt").read_text())
     #ic = IntCode("9,3,203,-1,99")
     exit_code, meta = ic.run([1], quiet=True)
-    outputs = meta["outputs"]
-
-    print("Part 1:", outputs[-1])
+    print("Part 1:", meta["outputs"][-1])
+    
+    exit_code, meta = ic.run([2], quiet=False)
+    print("Part 2:", meta["outputs"][-1])
