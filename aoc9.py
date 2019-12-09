@@ -7,7 +7,12 @@ class IntCode:
         self.program = program
 
     def parse(self):
-        return list(map(int, deepcopy(self.program).strip().split(",")))
+        memory = [0] * 1024 * 1024
+        init = list(map(int, deepcopy(self.program).strip().split(",")))
+        for index, value in enumerate(init):
+            memory[index] = value
+
+        return memory
 
     def pad(self, value, length):
         diff = (length + 1)- len(value)
@@ -23,35 +28,49 @@ class IntCode:
     def get_value(self, meta, offset):
         state = meta["state"]
         position = meta["position"]
+        
         modes = meta["modes"]
         mode = self.get_mode(modes, offset)
+
         value = None
         if mode == 0:
             value_position = state[position + offset]
-            try:
-                value = state[value_position]
-
-            except Exception as e:
-                print(f"ERROR position[0]={position + offset}, {len(state)}")
 
         elif mode == 1:
-            try:
-                value = state[position + offset]
+            value_position = position + offset
 
-            except Exception as e:
-                print(f"ERROR position[1]={position + offset}, {len(state)}")
+        elif mode == 2:
+            rel_base = meta["rel_base"]
+            rel_offset = state[position + offset]
+            value_position = rel_base + rel_offset
 
         else:
             print(f"ERROR: modes={mode}, {modes}")
+            return None
 
+        if value_position < 0:
+            print("ERROR:", value_position)
+
+        value = state[value_position]
         return value
 
     def set_value(self, meta, offset, value):
         state = meta["state"]
         position = meta["position"]
-        #modes = meta["modes"]
-        #mode = self.get_mode(modes, offset)
-        result_position = state[position + offset]
+
+        modes = meta["modes"]
+        mode = self.get_mode(modes, offset)
+        if mode == 0:
+            result_position = state[position + offset]
+
+        elif mode == 2:
+            rel_base = meta["rel_base"]
+            rel_offset = state[position + offset]
+            result_position = rel_base + rel_offset
+
+        else:
+            print(f"ERROR: modes={mode}, {modes}")
+        
         state[result_position] = value
         meta.update({"state": state})
 
@@ -75,6 +94,7 @@ class IntCode:
             meta = dict()
             meta["state"] = self.parse()
             meta["position"] = 0
+            meta["rel_base"] = 0
             
         meta["outputs"] = list()
 
@@ -142,6 +162,12 @@ class IntCode:
                 self.set_value(meta, 3, 1 if input1 == input2 else 0)
                 self.move_position(meta, 4)
 
+            elif opcode == 9:
+                input1 = self.get_value(meta, 1)
+                rel_base = meta["rel_base"]
+                meta["rel_base"] = rel_base + input1
+                self.move_position(meta, 2)
+
             elif opcode == 99:
                 break
 
@@ -151,52 +177,10 @@ class IntCode:
 
         return 0, meta
 
-def solve(ic, seq_range, init_input_codes, stream=False, quiet=False):
-    max_signal = -1
-    max_sequence = None
-    for sequence in permutations(seq_range, len(seq_range)):
-        if stream:
-            streams = [[phase_setting] for phase_setting in sequence]
-            streams[0].append(init_input_codes[0])
-
-            complete = [False for s in range(len(sequence))]
-            metas = [None for s in range(len(sequence))]
-
-            while not all(complete):
-                for seq_index in range(len(sequence)):
-                    next_index = (seq_index + 1) % len(streams)
-                    meta = metas[seq_index]
-                    reader = streams[seq_index]
-                    writer = streams[next_index]
-                    args = reader, meta, quiet
-                    exit_code, new_meta = ic.run(reader, meta, quiet=quiet)
-                    if exit_code > 0:
-                        return None, None
-
-                    metas[seq_index] = new_meta
-
-                    outputs = new_meta["outputs"]
-                    writer.extend(outputs)
-
-                    if exit_code == 0:
-                        complete[seq_index] = True
-
-            signal = streams[0][-1]
-
-        else:
-            input_codes = init_input_codes
-            for phase_setting in sequence:
-                phase_input_codes = [phase_setting] + input_codes
-                exit_code, meta = ic.run(phase_input_codes, quiet=quiet)
-                input_codes = meta.get("outputs")
-
-            signal = input_codes[0]
-
-        if signal > max_signal:
-            max_signal = signal
-            max_sequence = sequence
-
-    return max_signal, max_sequence
-
 if __name__ == "__main__":
     ic = IntCode(Path("aoc9.txt").read_text())
+    #ic = IntCode("9,3,203,-1,99")
+    exit_code, meta = ic.run([1], quiet=True)
+    outputs = meta["outputs"]
+
+    print("Part 1:", outputs[-1])
