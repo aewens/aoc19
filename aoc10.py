@@ -1,5 +1,7 @@
 from pathlib import Path
-from math import sqrt
+from math import atan2, hypot, pi
+from operator import itemgetter
+from collections import defaultdict
 
 def parse_map(raw_text):
     asteroids = list()
@@ -10,82 +12,64 @@ def parse_map(raw_text):
 
     return asteroids
 
-# Distance between points a and b
-def get_distance(a, b):
-    ax, ay = a
-    bx, by = b
-    x2 = (ax - bx)**2
-    y2 = (ay - by)**2
-    return sqrt(x2 + y2)
+def angle_from(a, b):
+    return atan2(b[0] - a[0], a[1] - b[1]) % (2 * pi)
 
-# Determine if point b lies between a and c
-def intersect2s(a, b, c):
-    ab = get_distance(a, b)
-    bc = get_distance(b, c)
-    ac = get_distance(a, c)
-    return (ab + bc) == ac
+def get_visible(asteroids, check):
+    visible = set()
+    for asteroid in asteroids:
+        if asteroid == check:
+            continue
 
-def dot(a, b):
-    ax, ay = a
-    bx, by = b
-    abx = ax * bx
-    aby = ay * by
-    return abx + aby
+        angle = angle_from(check, asteroid)
+        visible.add(angle)
 
-def wedge(a, b):
-    ax, ay = a
-    bx, by = b
-    axby = ax * by
-    aybx = ay * bx
-    return axby - aybx
-
-def intersects(a, b, c):
-    ax, ay = a
-    bx, by = b
-    cx, cy = c
-
-    ux = ax - bx
-    uy = ay - by
-    u = ux, uy
-
-    vx = bx - cx
-    vy = by - cy
-    v = vx, vy
-
-    return wedge(u, v) == 0 and dot(u, v) > 0
-
-def get_visible(points, check):
-    visible = 0
-    check_point = points[check]
-    lines = [[check_point, point] for p, point in enumerate(points) if p != check]
-    for line in lines:
-        start, end = line
-        blocked = False
-        for p, point in enumerate(points):
-            if p == check:
-                continue
-
-            if intersects(start, point, end):
-                blocked = True
-                break
-
-        if not blocked:
-            visible = visible + 1
-
-    return visible
+    return len(visible)
 
 def get_most_visible(asteroid_map):
     most_visible = 0
-    choice = None
-    for asteroid in range(len(asteroid_map)):
+    asteroids = None
+    for asteroid in asteroid_map:
         visible = get_visible(asteroid_map, asteroid)
-        if visible > most_visible:
-            most_visible = visible
-            choice = asteroid_map[asteroid]
+        most_visible = max(visible, most_visible)
 
     return most_visible
 
+def dist_from(a, b):
+    ax, ay = a
+    bx, by = b
+
+    return hypot(by - ay, bx - ax)
+
+def destroy_order(blocks, station):
+    return lambda asteroid: (blocks[asteroid], angle_from(station, asteroid))
+
+def destroy_asteroids(asteroids):
+    visibles = [(a, get_visible(asteroids, a)) for a in asteroids]
+    visibles.sort(key=itemgetter(1))
+    station = visibles[-1][0]
+    asteroids.remove(station)
+
+    asteroids.sort(key=lambda a: dist_from(station, a))
+    blocks = defaultdict(lambda: 0)
+    for a, asteroid in enumerate(asteroids):
+        closest_asteroids = asteroids[:a]
+        for close_asteroid in closest_asteroids:
+            angle1 = angle_from(station, asteroid)
+            angle2 = angle_from(station, close_asteroid)
+            if angle1 == angle2:
+                block = blocks[asteroid]
+                blocks[asteroid] = block + 1
+
+    order = destroy_order(blocks, station)
+    return sorted(asteroids, key=lambda a: order(a))[200 - 1]
+
 if __name__ == "__main__":
-    #asteroid_map = parse_map(test_case)
     asteroid_map = parse_map(Path("aoc10.txt").read_text())
-    print("Part 1:", get_most_visible(asteroid_map))
+
+    visible = get_most_visible(asteroid_map)
+    print("Part 1:", visible)
+
+    asteroid200 = destroy_asteroids(asteroid_map)
+    x, y = asteroid200
+    print("Part 2:", x * 100 + y)
