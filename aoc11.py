@@ -2,6 +2,7 @@ from pathlib import Path
 from copy import deepcopy
 from itertools import permutations
 from collections import defaultdict
+from math import inf
 
 class IntCode:
     def __init__(self, program):
@@ -178,13 +179,14 @@ class IntCode:
 
         return 0, meta
 
-def robot(ic, quiet=False):
+def robot(ic, mode, quiet=False):
     meta = None
-    input_codes = [0]
     facing = 0
     position = 0, 0
-    panels = defaultdict(lambda: 0)
     painted = set()
+    panels = defaultdict(lambda: 0)
+    panels[position] = mode
+
     while True:
         exit_code, meta = ic.run([panels[position]], meta, quiet=quiet)
         if exit_code == 0:
@@ -215,10 +217,29 @@ def robot(ic, quiet=False):
         elif facing == 3:
             position = px - 1, py
 
-    return painted
+    return painted if mode == 0 else panels
+
+def draw_panels(panels):
+    min_x, min_y, max_x, max_y = inf, inf, -inf, -inf
+    for px, py in panels.keys():
+        min_x = min(px, min_x)
+        min_y = min(py, min_y)
+        max_x = max(px, max_x)
+        max_y = max(py, max_y)
+
+    for y in range(min_y, max_y + 1):
+        row = list()
+        for x in range(min_x, max_x + 1):
+            row.append("." if panels[(x, y)] == 0 else "@")
+
+        print("".join(row))
 
 if __name__ == "__main__":
     ic = IntCode(Path("aoc11.txt").read_text())
-    painted = robot(ic, True)
 
+    painted = robot(ic, 0, True)
     print("Part 1:", len(painted))
+
+    print("Part 2:")
+    panels = robot(ic, 1, True)
+    draw_panels(panels)
