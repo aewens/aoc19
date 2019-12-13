@@ -91,12 +91,17 @@ class IntCode:
         position = value if override else meta["position"] + value
         meta.update({"position": position})
 
+    def dump(self):
+        meta = dict()
+        meta["state"] = self.parse()
+        meta["position"] = 0
+        meta["rel_base"] = 0
+
+        return meta
+
     def run(self, input_codes, meta=None, quiet=False):
         if meta is None:
-            meta = dict()
-            meta["state"] = self.parse()
-            meta["position"] = 0
-            meta["rel_base"] = 0
+            meta = self.dump()
 
         meta["outputs"] = list()
 
@@ -179,10 +184,10 @@ class IntCode:
 
         return 0, meta
 
-def get_blocks(data):
+def get_tiles(meta, tiles):
+    data = meta.get("outputs", list())
+
     cursor = 0
-    blocks = 0
-    tiles = dict()
     tile_types = dict()
     tile_types[0] = "empty"
     tile_types[1] = "wall"
@@ -192,15 +197,102 @@ def get_blocks(data):
     while cursor < len(data):
         tile_x = data[cursor + 0]
         tile_y = data[cursor + 1]
+        if tile_x == -1 and tile_y == 0:
+            score = data[cursor + 2]
+            tiles["score"] = score
+            cursor = cursor + 3
+            continue
+        
         tile_id = data[cursor + 2]
         tile_type = tile_types.get(tile_id, "invalid")
         tiles[(tile_x, tile_y)] = tile_type
+        cursor = cursor + 3
+
+    return tiles
+
+def get_blocks(tiles):
+    blocks = 0
+    for position, tile_type in tiles.items():
         if tile_type == "block":
             blocks = blocks + 1
 
-        cursor = cursor + 3
-
     return blocks
+
+def display_tiles(tiles):
+    score = tiles.get("score", 0)
+    render = dict()
+    render["empty"] = " " 
+    render["wall"] = "*"
+    render["block"] = "#"
+    render["paddle"] = "_"
+    render["ball"] = "@"
+    max_x, max_y = list(tiles.keys())[-2]
+    for y in range(max_y + 1):
+        line = list()
+        for x in range(max_x + 1):
+            tile = tiles.get((x, y), "invalid")
+            if tile == "invalid":
+                print(tiles)
+                print(x, y)
+                return
+            line.append(render.get(tile, "x"))
+
+        print("".join(line))
+
+    print("Score: ", score)
+
+def get_input(tiles):
+    paddle = None
+    ball = None
+    for position, tile_type in tiles.items():
+        if tile_type == "paddle":
+            paddle = position
+
+        elif tile_type == "ball":
+            ball = position
+
+        if None not in [paddle, ball]:
+            break
+
+    px = paddle[0]
+    bx = ball[0]
+
+    if px > bx:
+        return -1
+
+    elif px == bx:
+        return 0
+
+    elif px < bx:
+        return 1
+
+def arcade(ic, display=True):
+    # Insert quarters
+    meta = ic.dump()
+    meta["state"][0] = 2
+
+    exit_code = None
+    tiles = dict()
+    joystick = list()
+    joystick_map = dict()
+    joystick_map["j"] = -1
+    joystick_map["k"] = 0
+    joystick_map["l"] = 1
+    while exit_code != 0:
+        exit_code, meta = ic.run(joystick, meta, quiet=True)
+        tiles = get_tiles(meta, tiles)
+        if exit_code == 0:
+            print("Part 2:", tiles.get("score", 0))
+
+        elif exit_code > 0:
+            print("ERROR!")
+            break
+
+        else:
+            if display:
+                display_tiles(tiles)
+
+            joystick = [get_input(tiles)]
 
 if __name__ == "__main__":
     ic = IntCode(Path("aoc13.txt").read_text())
@@ -208,6 +300,7 @@ if __name__ == "__main__":
     if exit_code != 0:
         print("ERROR!")
 
-    outputs = meta.get("outputs", list())
-    blocks = get_blocks(outputs)
+    blocks = get_blocks(get_tiles(meta, dict()))
     print("Part 1:", blocks)
+
+    arcade(ic, False)
