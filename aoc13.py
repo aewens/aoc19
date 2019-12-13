@@ -2,7 +2,7 @@ from pathlib import Path
 from copy import deepcopy
 from itertools import permutations
 from collections import defaultdict
-from math import inf
+from time import sleep
 
 class IntCode:
     def __init__(self, program):
@@ -224,7 +224,7 @@ def display_tiles(tiles):
     render["empty"] = " " 
     render["wall"] = "*"
     render["block"] = "#"
-    render["paddle"] = "_"
+    render["paddle"] = "="
     render["ball"] = "@"
     max_x, max_y = list(tiles.keys())[-2]
     for y in range(max_y + 1):
@@ -266,7 +266,7 @@ def get_input(tiles):
     elif px < bx:
         return 1
 
-def arcade(ic, display=True):
+def arcade(ic, display=True, auto=True):
     # Insert quarters
     meta = ic.dump()
     meta["state"][0] = 2
@@ -291,8 +291,14 @@ def arcade(ic, display=True):
         else:
             if display:
                 display_tiles(tiles)
+                if auto:
+                    sleep(0.1)
 
-            joystick = [get_input(tiles)]
+            if auto:
+                joystick = [get_input(tiles)]
+
+            else:
+                joystick = [joystick_map.get(input("[j,k,l]> "), 0)]
 
 if __name__ == "__main__":
     ic = IntCode(Path("aoc13.txt").read_text())
