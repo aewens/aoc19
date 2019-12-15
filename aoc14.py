@@ -22,139 +22,162 @@ def parse_reactions(raw_text):
 
     return reactions
 
-def get_refined_chemicals(reactions):
-    refined = dict()
-    chemicals = set()
-    for reaction_output, reaction_inputs in reactions.items():
-        if len(reaction_inputs) != 1:
-            continue
-
-        reaction_input = reaction_inputs[0]
-        input_quantity, input_chemical = reaction_input
-        if input_chemical != "ORE":
-            continue
-
-        output_quantity, output_chemical = reaction_output
-        refined[reaction_output] = input_quantity
-        chemicals.add(output_chemical)
-
-    return chemicals, refined
-
-def expand_reactions(reactions, refined):
-    changed = True
-    expanded_reactions = deepcopy(reactions)
-    refined_chemicals, refined_reactions = refined
-    expanded = True
-    while expanded:
-        expanded = False
-        for reaction_output, reaction_inputs in expanded_reactions.items():
-            output_quantity, output_chemical = reaction_output
-            if output_chemical in refined_chemicals:
-                continue
-
-            expansions = list()
-            for reaction_input in reaction_inputs:
-                expansion = reactions.get(reaction_input)
-                if expansion is None:
-                    expansions.append(reaction_input)
-                    continue
-
-                expanded = True
-                expansions.extend(expansion)
-
-            expanded_reactions[reaction_output] = expansions
-
-    return expanded_reactions
-
-def expand_expansion_chemicals(n_chemicals, r_chemicals, outputs, reactions):
-    for needed_chemical in list(n_chemicals.keys()):
-        needed_quantity = n_chemicals[needed_chemical]
-        if needed_chemical == "ORE" or needed_chemical in r_chemicals:
-            n_chemicals[needed_chemical] = needed_quantity
-            continue
-
-        n_chemicals.pop(needed_chemical)
-        available_quantity = outputs.get(needed_chemical)
-        if needed_quantity < available_quantity:
-            uses = 1
-
-        else:
-            uses = ceil(needed_quantity / available_quantity)
-
-        reaction_inputs = reactions.get((available_quantity, needed_chemical))
-        for input_quantity, input_chemical in reaction_inputs:
-            current_quantity = n_chemicals[input_chemical]
-            new_quantity = current_quantity + input_quantity * uses
-            n_chemicals[input_chemical] = new_quantity
-
-def get_fuel_unit(reactions, refined):
-    refined_chemicals, refined_reactions = refined
-
+def get_dependencies(reactions):
     outputs = dict()
     for output_quantity, output_chemical in reactions.keys():
         outputs[output_chemical] = output_quantity
 
-    fuel_recipe = reactions.get((1, "FUEL"))
-    if fuel_recipe is None:
-        return -1
+    top_down = dict()
+    bottom_up = defaultdict(list)
+    refined_ore = list()
+    for chemical, quantity in outputs.items():
+        available_quantity = outputs.get(chemical)
+        reaction = reactions.get((available_quantity, chemical))
+        #print(quantity, chemical, reaction)
+        dependencies = [chem for quan, chem in reaction]
+        if len(dependencies) == 1 and dependencies[0] == "ORE":
+            refined_ore.append(chemical)
 
-    needed_chemicals = defaultdict(lambda: 0)
-    for input_quantity, input_chemical in fuel_recipe:
-        current_quantity = needed_chemicals[input_chemical]
-        needed_chemicals[input_chemical] = current_quantity + input_quantity
+        for dep in dependencies:
+            bottom_up[dep].append(chemical)
 
-    #print(dict(needed_chemicals))
-    eec_args = needed_chemicals, refined_chemicals, outputs, reactions
-    expand_expansion_chemicals(*eec_args)
-    #print(dict(needed_chemicals))
-    ores = 0
-    expansion = defaultdict(lambda: 0)
-    for needed_chemical, needed_quantity in needed_chemicals.items():
-        if needed_chemical == "ORE":
-            ores = ores + needed_quantity
-            continue
+        top_down[chemical] = dependencies
+            
+    deps = dict()
+    deps["td"] = top_down
+    deps["bu"] = bottom_up
+    deps["ro"] = refined_ore
+    deps["os"] = outputs
+    return deps
 
-        available_quantity = outputs.get(needed_chemical)
-        if available_quantity is None:
-            continue
-
-        if needed_quantity >= available_quantity:
-            uses = ceil(needed_quantity / available_quantity)
-
-        else:
-            uses = ceil(available_quantity / needed_quantity)
-
-        reaction_key = available_quantity, needed_chemical
-        expanded_reaction = reactions.get(reaction_key)
-        if expanded_reaction:
-            for expanded_quantity, expanded_chemical in expanded_reaction:
-                used_quantity = expanded_quantity * uses
-                if expanded_chemical == "ORE":
-                    ores = ores + used_quantity
+def apply_substitions(reactions, dependencies):
+    outputs = dependencies.get("os")
+    sub_reactions = deepcopy(reactions)
+    changed = True
+    while changed:
+        changed = False
+        for reaction_output, reaction_inputs in sub_reactions.items():
+            output_quantity, output_chemical = reaction_output
+            substitutions = list()
+            for reaction_input in reaction_inputs:
+                input_quantity, input_chemical = reaction_input
+                if input_chemical == "ORE":
+                    substitutions.append(reaction_input)
                     continue
 
-                current_quantity = expansion[expanded_chemical]
-                new_quantity = current_quantity + used_quantity
-                expansion[expanded_chemical] = new_quantity
+                reaction_match = reactions.get(reaction_input)
+                if not reaction_match:
+                    available_quantity = outputs.get(input_chemical)
+                    used = input_quantity // available_quantity
+                    if used == 0 or input_quantity % available_quantity != 0: 
+                        substitutions.append(reaction_input)
+                        continue
 
-        else:
-            current_quantity = expansion[needed_chemical]
-            new_quantity = current_quantity + needed_quantity
-            expansion[expanded_chemical] = new_quantity
+                    match_key = available_quantity, input_chemical
+                    reaction_match = deepcopy(reactions.get(match_key))
+                    for rm, r_match in enumerate(reaction_match):
+                        r_quantity, r_chemical = r_match
+                        reaction_match[rm] = r_quantity * used, r_chemical
 
-    expansion = dict(expansion)
-    refined_units = {rc: rq for rq, rc in refined_reactions.keys()}
-    for chemical, quantity in expansion.items():
-        if chemical == "ORE":
-            ores = ores + quantity
+                changed = True
+                substitutions.extend(reaction_match)
+
+            condensed = defaultdict(lambda: 0)
+            for substitution in substitutions:
+                sub_quantity, sub_chemical = substitution
+                current_quantity = condensed[sub_chemical]
+                condensed[sub_chemical] = current_quantity + sub_quantity
+
+            substituted = [(q, c) for c, q in condensed.items()]
+            sub_reactions[reaction_output] = substituted
+
+    processed = set(outputs.keys())
+    for sub_inputs in sub_reactions.values():
+        for sub_quantity, sub_chemical in sub_inputs:
+            if sub_chemical in processed:
+                processed.remove(sub_chemical)
+
+    dependencies["pc"] = processed
+    return sub_reactions
+
+def expand_reactions(reactions, dependencies):
+    top_down = dependencies.get("td")
+    bottom_up = dependencies.get("bu")
+    refined_ore = dependencies.get("ro")
+    outputs = dependencies.get("os")
+    processed = dependencies.get("pc")
+
+    fuel_key = 1, "FUEL"
+    expanded_reactions = deepcopy(reactions)
+    changed = True
+    while changed:
+        changed = False
+        expansions = list()
+        for reaction_input in expanded_reactions.get(fuel_key):
+            input_quantity, input_chemical = reaction_input
+            if input_chemical == "ORE":
+                expansions.append(reaction_input)
+                continue
+
+            deps = top_down.get(input_chemical)
+            needed = bottom_up.get(input_chemical)
+            skip = False
+            for need in needed:
+                if need not in processed:
+                    skip = True
+                    break
+
+            if skip:
+                expansions.append(reaction_input)
+                continue
+
+            available_quantity = outputs.get(input_chemical)
+            used = ceil(input_quantity / available_quantity)
+
+            match_key = available_quantity, input_chemical
+            reaction_match = deepcopy(reactions.get(match_key))
+            for rm, r_match in enumerate(reaction_match):
+                r_quantity, r_chemical = r_match
+                reaction_match[rm] = r_quantity * used, r_chemical
+
+            changed = True
+            expansions.extend(reaction_match)
+
+        condensed = defaultdict(lambda: 0)
+        for expansion in expansions:
+            exp_quantity, exp_chemical = expansion
+            current_quantity = condensed[exp_chemical]
+            condensed[exp_chemical] = current_quantity + exp_quantity
+
+        expanded = [(q, c) for c, q in condensed.items()]
+        expanded_reactions[fuel_key] = expanded
+        processed.add(input_chemical)
+
+    return expanded_reactions
+
+def get_fuel_unit(reactions, dependencies):
+    outputs = dependencies.get("os")
+
+    fuel_key = 1, "FUEL"
+    ores = 0
+    for reaction_input in reactions.get(fuel_key):
+        input_quantity, input_chemical = reaction_input
+        if input_chemical == "ORE":
+            ores = ores + input_quantity
             continue
 
-        refined_unit = refined_units.get(chemical)
-        refined_needed = ceil(quantity / refined_unit)
-        refined_key = refined_unit, chemical
-        refined_ore = refined_reactions.get(refined_key)
-        ore_count = refined_ore * refined_needed
-        ores = ores + ore_count
+        available_quantity = outputs.get(input_chemical)
+        if input_quantity >= available_quantity:
+            used = ceil(input_quantity / available_quantity)
+
+        else:
+            used = available_quantity
+
+        match_key = available_quantity, input_chemical
+        reaction_match = deepcopy(reactions.get(match_key))
+        for rm, r_match in enumerate(reaction_match):
+            r_quantity, r_chemical = r_match
+            ores = ores + r_quantity * used
 
     return ores
 
@@ -200,13 +223,14 @@ if __name__ == "__main__":
         "176 ORE => 6 VJHF"
     ]))
     #reactions = parse_reactions(Path("aoc14.txt").read_text())
-    #pprint(reactions)
-    #print("----")
-    refined = get_refined_chemicals(reactions)
-    #print(refined)
-    reactions = expand_reactions(reactions, refined)
-    #pprint(reactions)
-    #print("----")
-    ores = get_fuel_unit(reactions, refined)
-    #print("----")
+    deps = get_dependencies(reactions)
+    pprint(reactions)
+    print("----")
+    reactions = apply_substitions(reactions, deps)
+    pprint(reactions)
+    print("----")
+    reactions = expand_reactions(reactions, deps)
+    pprint(reactions)
+    print("----")
+    ores = get_fuel_unit(reactions, deps)
     print(ores)
