@@ -1,185 +1,46 @@
 from pathlib import Path
-from collections import defaultdict
-from math import inf, ceil
-from copy import deepcopy
+from math import ceil
 from pprint import pprint
 
 def parse_reactions(raw_text):
     reactions = dict()
+    r_inputs = reactions["inputs"] = list()
+    r_outputs = reactions["outputs"] = list()
     for line in raw_text.split("\n"):
         if len(line) == 0:
             continue
 
-        raw_inputs, raw_output = line.strip().split(" => ")
-        inputs = list()
-        for r_input in raw_inputs.split(", "):
-            quantity, chemical = r_input.split(" ")
-            inputs.append((int(quantity), chemical))
+        inputs, output = line.strip().split(" => ")
+        output_value, output_key = output.split(" ")
+        r_outputs.append({output_key: int(output_value)})
+        pairs = dict()
+        for pair in inputs.split(", "):
+            value, key = pair.split(" ")
+            pairs[key] = int(value)
 
-        output_quantity, output_chemical = raw_output.split(" ")
-        output = int(output_quantity), output_chemical
-        reactions[output] = inputs
+        r_inputs.append(pairs)
 
     return reactions
 
-def get_dependencies(reactions):
-    outputs = dict()
-    for output_quantity, output_chemical in reactions.keys():
-        outputs[output_chemical] = output_quantity
+def get_chemical_quantity(chemical, reactions):
+    inputs = reactions.get("inputs")
+    outputs = reactions.get("outputs")
 
-    top_down = dict()
-    bottom_up = defaultdict(list)
-    refined_ore = list()
-    for chemical, quantity in outputs.items():
-        available_quantity = outputs.get(chemical)
-        reaction = reactions.get((available_quantity, chemical))
-        #print(quantity, chemical, reaction)
-        dependencies = [chem for quan, chem in reaction]
-        if len(dependencies) == 1 and dependencies[0] == "ORE":
-            refined_ore.append(chemical)
+    if chemical == "FUEL":
+        return 1
 
-        for dep in dependencies:
-            bottom_up[dep].append(chemical)
+    quantity = 0
+    for p, pairs in enumerate(inputs):
+        if chemical in pairs:
+            output = outputs[p]
+            for output_chemical, output_quantity in output.items():
+                args = output_chemical, reactions
+                chemical_quantity = get_chemical_quantity(*args)
+                current_quantity = pairs.get(chemical)
+                used_quantity = ceil(chemical_quantity / output_quantity)
+                quantity = quantity + used_quantity * current_quantity
 
-        top_down[chemical] = dependencies
-            
-    deps = dict()
-    deps["td"] = top_down
-    deps["bu"] = bottom_up
-    deps["ro"] = refined_ore
-    deps["os"] = outputs
-    return deps
-
-def apply_substitions(reactions, dependencies):
-    outputs = dependencies.get("os")
-    sub_reactions = deepcopy(reactions)
-    changed = True
-    while changed:
-        changed = False
-        for reaction_output, reaction_inputs in sub_reactions.items():
-            output_quantity, output_chemical = reaction_output
-            substitutions = list()
-            for reaction_input in reaction_inputs:
-                input_quantity, input_chemical = reaction_input
-                if input_chemical == "ORE":
-                    substitutions.append(reaction_input)
-                    continue
-
-                reaction_match = reactions.get(reaction_input)
-                if not reaction_match:
-                    available_quantity = outputs.get(input_chemical)
-                    used = input_quantity // available_quantity
-                    if used == 0 or input_quantity % available_quantity != 0: 
-                        substitutions.append(reaction_input)
-                        continue
-
-                    match_key = available_quantity, input_chemical
-                    reaction_match = deepcopy(reactions.get(match_key))
-                    for rm, r_match in enumerate(reaction_match):
-                        r_quantity, r_chemical = r_match
-                        reaction_match[rm] = r_quantity * used, r_chemical
-
-                changed = True
-                substitutions.extend(reaction_match)
-
-            condensed = defaultdict(lambda: 0)
-            for substitution in substitutions:
-                sub_quantity, sub_chemical = substitution
-                current_quantity = condensed[sub_chemical]
-                condensed[sub_chemical] = current_quantity + sub_quantity
-
-            substituted = [(q, c) for c, q in condensed.items()]
-            sub_reactions[reaction_output] = substituted
-
-    processed = set(outputs.keys())
-    for sub_inputs in sub_reactions.values():
-        for sub_quantity, sub_chemical in sub_inputs:
-            if sub_chemical in processed:
-                processed.remove(sub_chemical)
-
-    dependencies["pc"] = processed
-    return sub_reactions
-
-def expand_reactions(reactions, dependencies):
-    top_down = dependencies.get("td")
-    bottom_up = dependencies.get("bu")
-    refined_ore = dependencies.get("ro")
-    outputs = dependencies.get("os")
-    processed = dependencies.get("pc")
-
-    fuel_key = 1, "FUEL"
-    expanded_reactions = deepcopy(reactions)
-    changed = True
-    while changed:
-        changed = False
-        expansions = list()
-        for reaction_input in expanded_reactions.get(fuel_key):
-            input_quantity, input_chemical = reaction_input
-            if input_chemical == "ORE":
-                expansions.append(reaction_input)
-                continue
-
-            deps = top_down.get(input_chemical)
-            needed = bottom_up.get(input_chemical)
-            skip = False
-            for need in needed:
-                if need not in processed:
-                    skip = True
-                    break
-
-            if skip:
-                expansions.append(reaction_input)
-                continue
-
-            available_quantity = outputs.get(input_chemical)
-            used = ceil(input_quantity / available_quantity)
-
-            match_key = available_quantity, input_chemical
-            reaction_match = deepcopy(reactions.get(match_key))
-            for rm, r_match in enumerate(reaction_match):
-                r_quantity, r_chemical = r_match
-                reaction_match[rm] = r_quantity * used, r_chemical
-
-            changed = True
-            expansions.extend(reaction_match)
-
-        condensed = defaultdict(lambda: 0)
-        for expansion in expansions:
-            exp_quantity, exp_chemical = expansion
-            current_quantity = condensed[exp_chemical]
-            condensed[exp_chemical] = current_quantity + exp_quantity
-
-        expanded = [(q, c) for c, q in condensed.items()]
-        expanded_reactions[fuel_key] = expanded
-        processed.add(input_chemical)
-
-    return expanded_reactions
-
-def get_fuel_unit(reactions, dependencies):
-    outputs = dependencies.get("os")
-
-    fuel_key = 1, "FUEL"
-    ores = 0
-    for reaction_input in reactions.get(fuel_key):
-        input_quantity, input_chemical = reaction_input
-        if input_chemical == "ORE":
-            ores = ores + input_quantity
-            continue
-
-        available_quantity = outputs.get(input_chemical)
-        if input_quantity >= available_quantity:
-            used = ceil(input_quantity / available_quantity)
-
-        else:
-            used = available_quantity
-
-        match_key = available_quantity, input_chemical
-        reaction_match = deepcopy(reactions.get(match_key))
-        for rm, r_match in enumerate(reaction_match):
-            r_quantity, r_chemical = r_match
-            ores = ores + r_quantity * used
-
-    return ores
+    return quantity
 
 if __name__ == "__main__":
     #reactions = parse_reactions("\n".join([
@@ -209,28 +70,38 @@ if __name__ == "__main__":
     #    "165 ORE => 2 GPVTF",
     #    "3 DCFZ, 7 NZVS, 5 HKGWZ, 10 PSHF => 8 KHKGT"
     #]))
-    reactions = parse_reactions("\n".join([
-        "2 VPVL, 7 FWMGM, 2 CXFTF, 11 MNCFX => 1 STKFG",
-        "17 NVRVD, 3 JNWZP => 8 VPVL",
-        "53 STKFG, 6 MNCFX, 46 VJHF, 81 HVMC, 68 CXFTF, 25 GNMV => 1 FUEL",
-        "22 VJHF, 37 MNCFX => 5 FWMGM","139 ORE => 4 NVRVD",
-        "144 ORE => 7 JNWZP",
-        "5 MNCFX, 7 RFSQX, 2 FWMGM, 2 VPVL, 19 CXFTF => 3 HVMC",
-        "5 VJHF, 7 MNCFX, 9 VPVL, 37 CXFTF => 6 GNMV",
-        "145 ORE => 6 MNCFX",
-        "1 NVRVD => 8 CXFTF",
-        "1 VJHF, 6 MNCFX => 4 RFSQX",
-        "176 ORE => 6 VJHF"
-    ]))
-    #reactions = parse_reactions(Path("aoc14.txt").read_text())
-    deps = get_dependencies(reactions)
-    pprint(reactions)
-    print("----")
-    reactions = apply_substitions(reactions, deps)
-    pprint(reactions)
-    print("----")
-    reactions = expand_reactions(reactions, deps)
-    pprint(reactions)
-    print("----")
-    ores = get_fuel_unit(reactions, deps)
-    print(ores)
+    #reactions = parse_reactions("\n".join([
+    #    "2 VPVL, 7 FWMGM, 2 CXFTF, 11 MNCFX => 1 STKFG",
+    #    "17 NVRVD, 3 JNWZP => 8 VPVL",
+    #    "53 STKFG, 6 MNCFX, 46 VJHF, 81 HVMC, 68 CXFTF, 25 GNMV => 1 FUEL",
+    #    "22 VJHF, 37 MNCFX => 5 FWMGM","139 ORE => 4 NVRVD",
+    #    "144 ORE => 7 JNWZP",
+    #    "5 MNCFX, 7 RFSQX, 2 FWMGM, 2 VPVL, 19 CXFTF => 3 HVMC",
+    #    "5 VJHF, 7 MNCFX, 9 VPVL, 37 CXFTF => 6 GNMV",
+    #    "145 ORE => 6 MNCFX",
+    #    "1 NVRVD => 8 CXFTF",
+    #    "1 VJHF, 6 MNCFX => 4 RFSQX",
+    #    "176 ORE => 6 VJHF"
+    #]))
+    #reactions = parse_reactions("\n".join([
+    #    "171 ORE => 8 CNZTR",
+    #    "7 ZLQW, 3 BMBT, 9 XCVML, 26 XMNCP, 1 WPTQ, 2 MZWV, 1 RJRHP => 4 PLWSL",
+    #    "114 ORE => 4 BHXH",
+    #    "14 VRPVC => 6 BMBT",
+    #    "6 BHXH, 18 KTJDG, 12 WPTQ, 7 PLWSL, 31 FHTLT, 37 ZDVW => 1 FUEL",
+    #    "6 WPTQ, 2 BMBT, 8 ZLQW, 18 KTJDG, 1 XMNCP, 6 MZWV, 1 RJRHP => 6 FHTLT",
+    #    "15 XDBXC, 2 LTCX, 1 VRPVC => 6 ZLQW",
+    #    "13 WPTQ, 10 LTCX, 3 RJRHP, 14 XMNCP, 2 MZWV, 1 ZLQW => 1 ZDVW",
+    #    "5 BMBT => 4 WPTQ",
+    #    "189 ORE => 9 KTJDG",
+    #    "1 MZWV, 17 XDBXC, 3 XCVML => 2 XMNCP",
+    #    "12 VRPVC, 27 CNZTR => 2 XDBXC",
+    #    "15 KTJDG, 12 BHXH => 5 XCVML",
+    #    "3 BHXH, 2 VRPVC => 7 MZWV",
+    #    "121 ORE => 7 VRPVC",
+    #    "7 XCVML => 6 RJRHP",
+    #    "5 BHXH, 4 VRPVC => 5 LTCX"
+    #]))
+    reactions = parse_reactions(Path("aoc14.txt").read_text())
+    count = get_chemical_quantity("ORE", reactions)
+    print("Part 1:", count)
