@@ -265,6 +265,7 @@ def droid(ic, display=True):
 
         nx, ny = step[move](px, py)
         status = meta["outputs"][0]
+        ship[(nx, ny)] = status
 
         if display:
             render(px, py, ship)
@@ -272,15 +273,44 @@ def droid(ic, display=True):
             sleep(0.05)
 
         if status == 2:
-            print(nx, ny)
-            break
+            #print(nx, ny, ship[(nx, ny)])
+            return nx, ny, ship
 
         elif status == 1:
             px, py = nx, ny
-            ship[(px, py)] = status
             if not backtrack:
                 steps.append(move)
 
+def find_fewest_steps(ship, ox, oy):
+    routes = [[(ox, oy)]]
+    seen = set()
+
+    step = dict()
+    step[1] = lambda x, y: (x, y - 1)
+    step[2] = lambda x, y: (x, y + 1)
+    step[3] = lambda x, y: (x - 1, y)
+    step[4] = lambda x, y: (x + 1, y)
+
+    while len(routes) > 0:
+        route = routes.pop(0)
+        position = route[-1]
+
+        if position == (0, 0):
+            return len(route) - 1
+
+        if position in seen:
+            continue
+
+        seen.add(position)
+        options = [step[i](*position) for i in [1, 2, 3, 4]]
+        for option in options:
+            if ship.get(option) == 1:
+                next_route = deepcopy(route)
+                next_route.append(option)
+                routes.append(next_route)
+
 if __name__ == "__main__":
     ic = IntCode(Path("aoc15.txt").read_text())
-    droid(ic)
+    ox, oy, ship = droid(ic, display=False)
+    fewest_steps = find_fewest_steps(ship, ox, oy)
+    print("Part 1:", fewest_steps)
