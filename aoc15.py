@@ -185,19 +185,19 @@ class IntCode:
 
         return 0, meta
 
-def render(px, py, walls):
+def render(px, py, ship):
     # Clears screen
     print(chr(27) + "[2J")
 
-    min_x, min_y = px, px 
-    max_x, max_y = px, py
+    min_x, min_y = px - 1, px - 1
+    max_x, max_y = px + 1, py + 1
 
-    for wall in walls.keys():
-        wx, wy = wall
-        min_x = min(wx, min_x)
-        min_y = min(wy, min_y)
-        max_x = max(wx, max_x)
-        max_y = max(wy, max_y)
+    for sxy in ship.keys():
+        sx, sy = sxy
+        min_x = min(sx, min_x)
+        min_y = min(sy, min_y)
+        max_x = max(sx, max_x)
+        max_y = max(sy, max_y)
 
     for y in range(min_y, max_y + 1):
         row = list()
@@ -206,137 +206,27 @@ def render(px, py, walls):
                 row.append("@")
                 continue
 
-            wall = walls.get((x, y))
-            row.append("#" if wall else " ")
+            status = ship.get((x, y))
+            if status == -1 or status is None:
+                row.append("#")
+
+            elif status == 0:
+                row.append("%")
+
+            elif status == 1:
+                row.append(".")
+
+            elif status == 2:
+                row.append("&")
+
+            else:
+                row.append("*")
 
         print("".join(row))
 
-def _droid(ic, display=True):
-    #moves = [1, 2, 3, 4]
-    walls = defaultdict(lambda: False)
-    known = defaultdict(dict)
-    route = list()
-    steps = list()
-
-    step = dict()
-    step[1] = lambda x, y: (x, y - 1)
-    step[2] = lambda x, y: (x, y + 1)
-    step[3] = lambda x, y: (x - 1, y)
-    step[4] = lambda x, y: (x + 1, y)
-
-    back = dict()
-    back[1] = 2
-    back[2] = 1
-    back[3] = 4
-    back[4] = 3
-
-    meta = ic.dump()
-
-    px, py = 0, 0
-    status = -1
-    move = 1
-    mode = "discover:check"
-    checked = 1
-    checking = px, py
-    input_codes = [move]
-
-    while status != 2:
-        exit_code, meta = ic.run(input_codes[:], meta, quiet=True)
-        if exit_code > 0:
-            print("ERROR!")
-            break
-
-        here = known[checking]
-        nx, ny = step[move](px, py)
-        status = meta["outputs"][0]
-        #print((px, py), input_codes, status, mode, here)
-        #sleep(1) 
-        if display:
-            render(px, py, walls)
-            print(mode, status, move, here)
-            sleep(1)#0.1)
-
-        if status == 2:
-            print(nx, ny, walls)
-            break
-
-        if status == 0:
-            walls[(nx, ny)] = True
-            if mode == "discover:check" and len(here) < 4:
-                here[move] = False
-                checked = move
-                move = (checked % 4) + 1
-
-            elif mode == "discover:undo":
-                print("LOGIC ERROR!")
-                break
-
-            if mode.startswith("discover") and len(here) == 4:
-                options = [option for option, can in here.items() if can]
-                if len(options) == 0:
-                    mode = "back"
-
-                else:
-                    mode = "discover:check"
-                    route.append(checking)
-                    move = options[0]
-                    steps.append(move)
-                    px, py = step[move](px, py)
-                    checking = px, py
-
-        elif status == 1:
-            if mode == "discover:check" and len(here) < 4:
-                here[move] = True
-                checked = move
-                mode = "discover:undo"
-                move = back[move]
-
-            elif mode == "discover:undo" and len(here) < 4:
-                mode = "discover:check"
-                move = (checked % 4) + 1
-                px, py = step[move](nx, ny)
-
-            elif mode.startswith("discover") and len(here) == 4:
-                options = [option for option, can in here.items() if can]
-                if len(options) == 0:
-                    mode = "back"
-
-                else:
-                    mode = "discover:check"
-                    route.append(checking)
-                    move = options[0]
-                    steps.append(move)
-                    px, py = step[move](px, py)
-                    checking = px, py
-
-        if mode != "back":
-            input_codes = [move]
-
-        else:
-            input_codes = list()
-            while True:
-                prev_xy = route.pop()
-                prev_step = steps.pop()
-
-                previous = known[prev_xy]
-                dead_end, *options = [o for o, c in previous.items() if c]
-                previous[dead_end] = False
-                if len(options) == 0:
-                    input_codes.append(back[prev_step])
-                    continue
-
-                mode == "discover:check"
-                px, py = prev_xy
-                move = options[0]
-                steps.append(move)
-                px, py = step[move](px, py)
-                input_codes.append(move)
-                break
-
 def droid(ic, display=True):
-    walls = defaultdict(lambda: False)
-    skip = defaultdict(set)
-    route = list()
+    options = defaultdict(lambda: [1, 2, 3, 4])
+    ship = defaultdict(lambda: -1)
     steps = list()
 
     step = dict()
@@ -355,65 +245,41 @@ def droid(ic, display=True):
 
     px, py = 0, 0
     status = -1
-    move = 1
-    checking = px, py
-    input_codes = [move]
+    move = options[(px, py)].pop()
 
     while status != 2:
-        exit_code, meta = ic.run(input_codes[:], meta, quiet=True)
+        moves = options[(px, py)]
+        if len(moves) > 0:
+            backtrack = False
+            move = moves.pop()
+
+        else:
+            backtrack = True
+            previous = steps.pop()
+            move = back[previous]
+
+        exit_code, meta = ic.run([move], meta, quiet=True)
         if exit_code > 0:
             print("ERROR!")
             break
 
-        skipping = skip[(px, py)]
         nx, ny = step[move](px, py)
         status = meta["outputs"][0]
+
         if display:
-            render(px, py, walls)
-            print(status, move, (px, py), skipping)
-            sleep(0.1)
+            render(px, py, ship)
+            print(status, move, (px, py))
+            sleep(0.05)
 
         if status == 2:
-            print(nx, ny, walls)
-
-        elif status == 0:
-            skipping.add(move)
-            walls[(nx, ny)] = True
+            print(nx, ny)
+            break
 
         elif status == 1:
-            route.append((px, py))
             px, py = nx, ny
-
-        backtrack = True
-        if move in skipping:
-            move = (move % 4) + 1
-            for i in range(4):
-                move = (move % 4) + 1
-                if move in skipping:
-                    continue
-
-                test = step[move](px, py)
-                if test not in route:
-                    backtrack = False
-                    break
-
-        else:
-            backtrack = False
-
-        if backtrack:
-            prev_xy = route.pop()
-            prev_step = steps.pop()
-            #print(px, py, prev_xy)
-            #print(skip)
-
-            skipping.add(prev_step)
-            skipping = skip[prev_xy]
-            skipping.add(prev_step)
-
-            move = back[prev_step]
-
-        steps.append(move)
-        input_codes = [move]
+            ship[(px, py)] = status
+            if not backtrack:
+                steps.append(move)
 
 if __name__ == "__main__":
     ic = IntCode(Path("aoc15.txt").read_text())
