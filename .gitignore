@@ -2,6 +2,7 @@
 *.swp
 *.swo
 test.py
+aoc.o
 
 # ---> Python
 # Byte-compiled / optimized / DLL files
