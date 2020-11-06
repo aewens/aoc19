@@ -4,6 +4,7 @@ import (
 	"os"
 	"fmt"
 	"bufio"
+	"strconv"
 )
 
 type Solutions map[int]func(chan string)
@@ -19,7 +20,8 @@ func ReadLines(path string, lines chan string) {
 	scanner := bufio.NewScanner(file)
 	
 	for scanner.Scan() {
-		lines <-scanner.Text()
+		line := scanner.Text()
+		lines <-line
 	}
 
 	close(lines)
@@ -30,6 +32,20 @@ func ReadLines(path string, lines chan string) {
 	}
 }
 
-func Display(answer int, text string) {
-	fmt.Printf("[%d] %s\n", answer, text)
+func Display(answer int, text interface{}) {
+	fmt.Printf("[%d] %#v\n", answer, text)
+}
+
+func StringToInt(convert string) int {
+	value, err := strconv.Atoi(convert)
+	if err != nil {
+		panic(err)
+	}
+
+	return value
+}
+
+func IntToString(convert int) string {
+	value := strconv.Itoa(convert)
+	return value
 }
