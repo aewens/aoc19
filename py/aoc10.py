@@ -65,7 +65,7 @@ def destroy_asteroids(asteroids):
     return sorted(asteroids, key=lambda a: order(a))[200 - 1]
 
 if __name__ == "__main__":
-    asteroid_map = parse_map(Path("aoc10.txt").read_text())
+    asteroid_map = parse_map(Path("../etc/aoc10.txt").read_text())
 
     visible = get_most_visible(asteroid_map)
     print("Part 1:", visible)

@@ -36,7 +36,7 @@ def load_modules(path):
     return modules
 
 if __name__ == "__main__":
-    modules = load_modules(Path("aoc1.txt"))
+    modules = load_modules(Path("../etc/aoc1.txt"))
     total_fuel = sum(map(fuel_required, modules))
     print(f"Part 1: {total_fuel}")
 

@@ -61,7 +61,7 @@ class IntCode:
         return 100 * noun + verb
 
 if __name__ == "__main__":
-    ic = IntCode(Path("aoc2.txt").read_text())
+    ic = IntCode(Path("../etc/aoc2.txt").read_text())
     result1 = ic.run([12, 2])
     print("Part 1:", result1[0])
 

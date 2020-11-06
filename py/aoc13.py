@@ -1,8 +1,7 @@
 from pathlib import Path
 from copy import deepcopy
+from itertools import permutations
 from collections import defaultdict
-from operator import itemgetter
-from math import inf
 from time import sleep
 
 class IntCode:
@@ -185,132 +184,129 @@ class IntCode:
 
         return 0, meta
 
-def render(px, py, ship):
-    # Clears screen
-    print(chr(27) + "[2J")
+def get_tiles(meta, tiles):
+    data = meta.get("outputs", list())
 
-    min_x, min_y = px - 1, px - 1
-    max_x, max_y = px + 1, py + 1
+    cursor = 0
+    tile_types = dict()
+    tile_types[0] = "empty"
+    tile_types[1] = "wall"
+    tile_types[2] = "block"
+    tile_types[3] = "paddle"
+    tile_types[4] = "ball"
+    while cursor < len(data):
+        tile_x = data[cursor + 0]
+        tile_y = data[cursor + 1]
+        if tile_x == -1 and tile_y == 0:
+            score = data[cursor + 2]
+            tiles["score"] = score
+            cursor = cursor + 3
+            continue
+        
+        tile_id = data[cursor + 2]
+        tile_type = tile_types.get(tile_id, "invalid")
+        tiles[(tile_x, tile_y)] = tile_type
+        cursor = cursor + 3
 
-    for sxy in ship.keys():
-        sx, sy = sxy
-        min_x = min(sx, min_x)
-        min_y = min(sy, min_y)
-        max_x = max(sx, max_x)
-        max_y = max(sy, max_y)
+    return tiles
 
-    for y in range(min_y, max_y + 1):
-        row = list()
-        for x in range(min_x, max_x + 1):
-            if x == px and y == py:
-                row.append("@")
-                continue
+def get_blocks(tiles):
+    blocks = 0
+    for position, tile_type in tiles.items():
+        if tile_type == "block":
+            blocks = blocks + 1
 
-            status = ship.get((x, y))
-            if status == -1 or status is None:
-                row.append("#")
+    return blocks
 
-            elif status == 0:
-                row.append("%")
+def display_tiles(tiles):
+    score = tiles.get("score", 0)
+    render = dict()
+    render["empty"] = " " 
+    render["wall"] = "*"
+    render["block"] = "#"
+    render["paddle"] = "="
+    render["ball"] = "@"
+    max_x, max_y = list(tiles.keys())[-2]
+    for y in range(max_y + 1):
+        line = list()
+        for x in range(max_x + 1):
+            tile = tiles.get((x, y), "invalid")
+            if tile == "invalid":
+                print(tiles)
+                print(x, y)
+                return
+            line.append(render.get(tile, "x"))
 
-            elif status == 1:
-                row.append(".")
+        print("".join(line))
 
-            elif status == 2:
-                row.append("&")
+    print("Score: ", score)
 
-            else:
-                row.append("*")
+def get_input(tiles):
+    paddle = None
+    ball = None
+    for position, tile_type in tiles.items():
+        if tile_type == "paddle":
+            paddle = position
 
-        print("".join(row))
+        elif tile_type == "ball":
+            ball = position
 
-def droid(ic, display=True):
-    options = defaultdict(lambda: [1, 2, 3, 4])
-    ship = defaultdict(lambda: -1)
-    steps = list()
+        if None not in [paddle, ball]:
+            break
 
-    step = dict()
-    step[1] = lambda x, y: (x, y - 1)
-    step[2] = lambda x, y: (x, y + 1)
-    step[3] = lambda x, y: (x - 1, y)
-    step[4] = lambda x, y: (x + 1, y)
+    px = paddle[0]
+    bx = ball[0]
 
-    back = dict()
-    back[1] = 2
-    back[2] = 1
-    back[3] = 4
-    back[4] = 3
+    if px > bx:
+        return -1
 
+    elif px == bx:
+        return 0
+
+    elif px < bx:
+        return 1
+
+def arcade(ic, display=True, auto=True):
+    # Insert quarters
     meta = ic.dump()
+    meta["state"][0] = 2
 
-    px, py = 0, 0
-    status = -1
-    move = options[(px, py)].pop()
+    exit_code = None
+    tiles = dict()
+    joystick = list()
+    joystick_map = dict()
+    joystick_map["j"] = -1
+    joystick_map["k"] = 0
+    joystick_map["l"] = 1
+    while exit_code != 0:
+        exit_code, meta = ic.run(joystick, meta, quiet=True)
+        tiles = get_tiles(meta, tiles)
+        if exit_code == 0:
+            print("Part 2:", tiles.get("score", 0))
 
-    while status != 2:
-        moves = options[(px, py)]
-        if len(moves) > 0:
-            backtrack = False
-            move = moves.pop()
-
-        else:
-            backtrack = True
-            previous = steps.pop()
-            move = back[previous]
-
-        exit_code, meta = ic.run([move], meta, quiet=True)
-        if exit_code > 0:
+        elif exit_code > 0:
             print("ERROR!")
             break
 
-        nx, ny = step[move](px, py)
-        status = meta["outputs"][0]
-        ship[(nx, ny)] = status
+        else:
+            if display:
+                display_tiles(tiles)
+                if auto:
+                    sleep(0.1)
 
-        if display:
-            render(px, py, ship)
-            print(status, move, (px, py))
-            sleep(0.05)
+            if auto:
+                joystick = [get_input(tiles)]
 
-        if status == 2:
-            #print(nx, ny, ship[(nx, ny)])
-            return nx, ny, ship
-
-        elif status == 1:
-            px, py = nx, ny
-            if not backtrack:
-                steps.append(move)
-
-def find_fewest_steps(ship, ox, oy):
-    routes = [[(ox, oy)]]
-    seen = set()
-
-    step = dict()
-    step[1] = lambda x, y: (x, y - 1)
-    step[2] = lambda x, y: (x, y + 1)
-    step[3] = lambda x, y: (x - 1, y)
-    step[4] = lambda x, y: (x + 1, y)
-
-    while len(routes) > 0:
-        route = routes.pop(0)
-        position = route[-1]
-
-        if position == (0, 0):
-            return len(route) - 1
-
-        if position in seen:
-            continue
-
-        seen.add(position)
-        options = [step[i](*position) for i in [1, 2, 3, 4]]
-        for option in options:
-            if ship.get(option) == 1:
-                next_route = deepcopy(route)
-                next_route.append(option)
-                routes.append(next_route)
+            else:
+                joystick = [joystick_map.get(input("[j,k,l]> "), 0)]
 
 if __name__ == "__main__":
-    ic = IntCode(Path("aoc15.txt").read_text())
-    ox, oy, ship = droid(ic, display=False)
-    fewest_steps = find_fewest_steps(ship, ox, oy)
-    print("Part 1:", fewest_steps)
+    ic = IntCode(Path("../etc/aoc13.txt").read_text())
+    exit_code, meta = ic.run([], quiet=True)
+    if exit_code != 0:
+        print("ERROR!")
+
+    blocks = get_blocks(get_tiles(meta, dict()))
+    print("Part 1:", blocks)
+
+    arcade(ic, False)

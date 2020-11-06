@@ -57,7 +57,7 @@ def find_shortest_distance(graph):
     return len(path)
 
 if __name__ == "__main__":
-    orbit_map = parse_map(Path("aoc6.txt").read_text())
+    orbit_map = parse_map(Path("../etc/aoc6.txt").read_text())
     #orbit_map = parse_map("COM)B\nB)C\nC)D\nD)E\nE)F\nB)G\nG)H\nD)I\nE)J\nJ)K\nK)L\nK)YOU\nI)SAN")
     graph, direct_orbits, indirect_orbits = count_orbits(orbit_map)
     total_orbits = direct_orbits + indirect_orbits

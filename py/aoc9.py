@@ -1,15 +1,13 @@
 from pathlib import Path
 from copy import deepcopy
 from itertools import permutations
-from collections import defaultdict
-from time import sleep
 
 class IntCode:
     def __init__(self, program):
         self.program = program
 
     def parse(self):
-        memory = defaultdict(lambda: 0)
+        memory = [0] * 1024 * 1024
         init = list(map(int, deepcopy(self.program).strip().split(",")))
         for index, value in enumerate(init):
             memory[index] = value
@@ -30,7 +28,7 @@ class IntCode:
     def get_value(self, meta, offset):
         state = meta["state"]
         position = meta["position"]
-
+        
         modes = meta["modes"]
         mode = self.get_mode(modes, offset)
 
@@ -72,7 +70,7 @@ class IntCode:
 
         else:
             print(f"ERROR: modes={mode}, {modes}")
-
+        
         state[result_position] = value
         meta.update({"state": state})
 
@@ -91,18 +89,13 @@ class IntCode:
         position = value if override else meta["position"] + value
         meta.update({"position": position})
 
-    def dump(self):
-        meta = dict()
-        meta["state"] = self.parse()
-        meta["position"] = 0
-        meta["rel_base"] = 0
-
-        return meta
-
     def run(self, input_codes, meta=None, quiet=False):
         if meta is None:
-            meta = self.dump()
-
+            meta = dict()
+            meta["state"] = self.parse()
+            meta["position"] = 0
+            meta["rel_base"] = 0
+            
         meta["outputs"] = list()
 
         while True:
@@ -184,129 +177,11 @@ class IntCode:
 
         return 0, meta
 
-def get_tiles(meta, tiles):
-    data = meta.get("outputs", list())
-
-    cursor = 0
-    tile_types = dict()
-    tile_types[0] = "empty"
-    tile_types[1] = "wall"
-    tile_types[2] = "block"
-    tile_types[3] = "paddle"
-    tile_types[4] = "ball"
-    while cursor < len(data):
-        tile_x = data[cursor + 0]
-        tile_y = data[cursor + 1]
-        if tile_x == -1 and tile_y == 0:
-            score = data[cursor + 2]
-            tiles["score"] = score
-            cursor = cursor + 3
-            continue
-        
-        tile_id = data[cursor + 2]
-        tile_type = tile_types.get(tile_id, "invalid")
-        tiles[(tile_x, tile_y)] = tile_type
-        cursor = cursor + 3
-
-    return tiles
-
-def get_blocks(tiles):
-    blocks = 0
-    for position, tile_type in tiles.items():
-        if tile_type == "block":
-            blocks = blocks + 1
-
-    return blocks
-
-def display_tiles(tiles):
-    score = tiles.get("score", 0)
-    render = dict()
-    render["empty"] = " " 
-    render["wall"] = "*"
-    render["block"] = "#"
-    render["paddle"] = "="
-    render["ball"] = "@"
-    max_x, max_y = list(tiles.keys())[-2]
-    for y in range(max_y + 1):
-        line = list()
-        for x in range(max_x + 1):
-            tile = tiles.get((x, y), "invalid")
-            if tile == "invalid":
-                print(tiles)
-                print(x, y)
-                return
-            line.append(render.get(tile, "x"))
-
-        print("".join(line))
-
-    print("Score: ", score)
-
-def get_input(tiles):
-    paddle = None
-    ball = None
-    for position, tile_type in tiles.items():
-        if tile_type == "paddle":
-            paddle = position
-
-        elif tile_type == "ball":
-            ball = position
-
-        if None not in [paddle, ball]:
-            break
-
-    px = paddle[0]
-    bx = ball[0]
-
-    if px > bx:
-        return -1
-
-    elif px == bx:
-        return 0
-
-    elif px < bx:
-        return 1
-
-def arcade(ic, display=True, auto=True):
-    # Insert quarters
-    meta = ic.dump()
-    meta["state"][0] = 2
-
-    exit_code = None
-    tiles = dict()
-    joystick = list()
-    joystick_map = dict()
-    joystick_map["j"] = -1
-    joystick_map["k"] = 0
-    joystick_map["l"] = 1
-    while exit_code != 0:
-        exit_code, meta = ic.run(joystick, meta, quiet=True)
-        tiles = get_tiles(meta, tiles)
-        if exit_code == 0:
-            print("Part 2:", tiles.get("score", 0))
-
-        elif exit_code > 0:
-            print("ERROR!")
-            break
-
-        else:
-            if display:
-                display_tiles(tiles)
-                if auto:
-                    sleep(0.1)
-
-            if auto:
-                joystick = [get_input(tiles)]
-
-            else:
-                joystick = [joystick_map.get(input("[j,k,l]> "), 0)]
-
 if __name__ == "__main__":
-    ic = IntCode(Path("aoc13.txt").read_text())
-    exit_code, meta = ic.run([], quiet=True)
-    if exit_code != 0:
-        print("ERROR!")
-
-    blocks = get_blocks(get_tiles(meta, dict()))
-    print("Part 1:", blocks)
-
-    arcade(ic, False)
+    ic = IntCode(Path("../etc/aoc9.txt").read_text())
+    #ic = IntCode("9,3,203,-1,99")
+    exit_code, meta = ic.run([1], quiet=True)
+    print("Part 1:", meta["outputs"][-1])
+    
+    exit_code, meta = ic.run([2], quiet=False)
+    print("Part 2:", meta["outputs"][-1])

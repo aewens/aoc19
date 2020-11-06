@@ -1,8 +1,9 @@
 from pathlib import Path
 from copy import deepcopy
-from itertools import permutations
 from collections import defaultdict
+from operator import itemgetter
 from math import inf
+from time import sleep
 
 class IntCode:
     def __init__(self, program):
@@ -91,12 +92,17 @@ class IntCode:
         position = value if override else meta["position"] + value
         meta.update({"position": position})
 
+    def dump(self):
+        meta = dict()
+        meta["state"] = self.parse()
+        meta["position"] = 0
+        meta["rel_base"] = 0
+
+        return meta
+
     def run(self, input_codes, meta=None, quiet=False):
         if meta is None:
-            meta = dict()
-            meta["state"] = self.parse()
-            meta["position"] = 0
-            meta["rel_base"] = 0
+            meta = self.dump()
 
         meta["outputs"] = list()
 
@@ -179,67 +185,132 @@ class IntCode:
 
         return 0, meta
 
-def robot(ic, mode, quiet=False):
-    meta = None
-    facing = 0
-    position = 0, 0
-    painted = set()
-    panels = defaultdict(lambda: 0)
-    panels[position] = mode
+def render(px, py, ship):
+    # Clears screen
+    print(chr(27) + "[2J")
 
-    while True:
-        exit_code, meta = ic.run([panels[position]], meta, quiet=quiet)
-        if exit_code == 0:
-            break
+    min_x, min_y = px - 1, px - 1
+    max_x, max_y = px + 1, py + 1
 
-        elif exit_code > 0:
-            print("ERROR!!!")
-            break
-
-        color, direction = meta["outputs"]
-        panels[position] = color
-        painted.add(position)
-        if direction == 0:
-            facing = (facing - 1) % 4
-        elif direction == 1:
-            facing = (facing + 1) % 4
-
-        px, py = position
-        if facing == 0:
-            position = px, py - 1
-
-        elif facing == 1:
-            position = px + 1, py
-
-        elif facing == 2:
-            position = px, py + 1
-
-        elif facing == 3:
-            position = px - 1, py
-
-    return painted if mode == 0 else panels
-
-def draw_panels(panels):
-    min_x, min_y, max_x, max_y = inf, inf, -inf, -inf
-    for px, py in panels.keys():
-        min_x = min(px, min_x)
-        min_y = min(py, min_y)
-        max_x = max(px, max_x)
-        max_y = max(py, max_y)
+    for sxy in ship.keys():
+        sx, sy = sxy
+        min_x = min(sx, min_x)
+        min_y = min(sy, min_y)
+        max_x = max(sx, max_x)
+        max_y = max(sy, max_y)
 
     for y in range(min_y, max_y + 1):
         row = list()
         for x in range(min_x, max_x + 1):
-            row.append("." if panels[(x, y)] == 0 else "@")
+            if x == px and y == py:
+                row.append("@")
+                continue
+
+            status = ship.get((x, y))
+            if status == -1 or status is None:
+                row.append("#")
+
+            elif status == 0:
+                row.append("%")
+
+            elif status == 1:
+                row.append(".")
+
+            elif status == 2:
+                row.append("&")
+
+            else:
+                row.append("*")
 
         print("".join(row))
 
+def droid(ic, display=True):
+    options = defaultdict(lambda: [1, 2, 3, 4])
+    ship = defaultdict(lambda: -1)
+    steps = list()
+
+    step = dict()
+    step[1] = lambda x, y: (x, y - 1)
+    step[2] = lambda x, y: (x, y + 1)
+    step[3] = lambda x, y: (x - 1, y)
+    step[4] = lambda x, y: (x + 1, y)
+
+    back = dict()
+    back[1] = 2
+    back[2] = 1
+    back[3] = 4
+    back[4] = 3
+
+    meta = ic.dump()
+
+    px, py = 0, 0
+    status = -1
+    move = options[(px, py)].pop()
+
+    while status != 2:
+        moves = options[(px, py)]
+        if len(moves) > 0:
+            backtrack = False
+            move = moves.pop()
+
+        else:
+            backtrack = True
+            previous = steps.pop()
+            move = back[previous]
+
+        exit_code, meta = ic.run([move], meta, quiet=True)
+        if exit_code > 0:
+            print("ERROR!")
+            break
+
+        nx, ny = step[move](px, py)
+        status = meta["outputs"][0]
+        ship[(nx, ny)] = status
+
+        if display:
+            render(px, py, ship)
+            print(status, move, (px, py))
+            sleep(0.05)
+
+        if status == 2:
+            #print(nx, ny, ship[(nx, ny)])
+            return nx, ny, ship
+
+        elif status == 1:
+            px, py = nx, ny
+            if not backtrack:
+                steps.append(move)
+
+def find_fewest_steps(ship, ox, oy):
+    routes = [[(ox, oy)]]
+    seen = set()
+
+    step = dict()
+    step[1] = lambda x, y: (x, y - 1)
+    step[2] = lambda x, y: (x, y + 1)
+    step[3] = lambda x, y: (x - 1, y)
+    step[4] = lambda x, y: (x + 1, y)
+
+    while len(routes) > 0:
+        route = routes.pop(0)
+        position = route[-1]
+
+        if position == (0, 0):
+            return len(route) - 1
+
+        if position in seen:
+            continue
+
+        seen.add(position)
+        options = [step[i](*position) for i in [1, 2, 3, 4]]
+        for option in options:
+            if ship.get(option) == 1:
+                next_route = deepcopy(route)
+                next_route.append(option)
+                routes.append(next_route)
+
 if __name__ == "__main__":
-    ic = IntCode(Path("aoc11.txt").read_text())
-
-    painted = robot(ic, 0, True)
-    print("Part 1:", len(painted))
-
-    print("Part 2:")
-    panels = robot(ic, 1, True)
-    draw_panels(panels)
+    ic = IntCode(Path("../etc/aoc15.txt").read_text())
+    ox, oy, ship = droid(ic, display=False)
+    fewest_steps = find_fewest_steps(ship, ox, oy)
+    print("Part 1:", fewest_steps)

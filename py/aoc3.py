@@ -65,7 +65,7 @@ def fewest_steps(cross_points, wire_steps):
     return fewest
 
 if __name__ == "__main__":
-    raw_data = Path("aoc3.txt").read_text()
+    raw_data = Path("../etc/aoc3.txt").read_text()
     wire_points, wire_steps = parse_wires(raw_data)
     cross_points = get_crosses(wire_points)
     closest = closest_cross(cross_points)

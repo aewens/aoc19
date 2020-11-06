@@ -51,7 +51,7 @@ def display_image(layers, width, height):
             pixel_row = list()
 
 if __name__ == "__main__":
-    dsn_data = Path("aoc8.txt").read_text()
+    dsn_data = Path("../etc/aoc8.txt").read_text()
     image_width = 25
     image_height = 6
     image_layers = get_image_layers(dsn_data, image_width, image_height)

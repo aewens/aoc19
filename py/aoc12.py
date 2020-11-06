@@ -171,7 +171,7 @@ if __name__ == "__main__":
     #    "<x=2, y=-7, z=3>",
     #    "<x=9, y=-8, z=-3>",
     #]))
-    moons = parse_moons(Path("aoc12.txt").read_text())
+    moons = parse_moons(Path("../etc/aoc12.txt").read_text())
     velocities = [{"x": 0, "y": 0, "z": 0} for i in range(len(moons))]
     init_moons = deepcopy(moons)
     init_velocities = deepcopy(velocities)

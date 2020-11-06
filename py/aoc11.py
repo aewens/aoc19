@@ -1,13 +1,15 @@
 from pathlib import Path
 from copy import deepcopy
 from itertools import permutations
+from collections import defaultdict
+from math import inf
 
 class IntCode:
     def __init__(self, program):
         self.program = program
 
     def parse(self):
-        memory = [0] * 1024 * 1024
+        memory = defaultdict(lambda: 0)
         init = list(map(int, deepcopy(self.program).strip().split(",")))
         for index, value in enumerate(init):
             memory[index] = value
@@ -28,7 +30,7 @@ class IntCode:
     def get_value(self, meta, offset):
         state = meta["state"]
         position = meta["position"]
-        
+
         modes = meta["modes"]
         mode = self.get_mode(modes, offset)
 
@@ -70,7 +72,7 @@ class IntCode:
 
         else:
             print(f"ERROR: modes={mode}, {modes}")
-        
+
         state[result_position] = value
         meta.update({"state": state})
 
@@ -95,7 +97,7 @@ class IntCode:
             meta["state"] = self.parse()
             meta["position"] = 0
             meta["rel_base"] = 0
-            
+
         meta["outputs"] = list()
 
         while True:
@@ -177,11 +179,67 @@ class IntCode:
 
         return 0, meta
 
+def robot(ic, mode, quiet=False):
+    meta = None
+    facing = 0
+    position = 0, 0
+    painted = set()
+    panels = defaultdict(lambda: 0)
+    panels[position] = mode
+
+    while True:
+        exit_code, meta = ic.run([panels[position]], meta, quiet=quiet)
+        if exit_code == 0:
+            break
+
+        elif exit_code > 0:
+            print("ERROR!!!")
+            break
+
+        color, direction = meta["outputs"]
+        panels[position] = color
+        painted.add(position)
+        if direction == 0:
+            facing = (facing - 1) % 4
+        elif direction == 1:
+            facing = (facing + 1) % 4
+
+        px, py = position
+        if facing == 0:
+            position = px, py - 1
+
+        elif facing == 1:
+            position = px + 1, py
+
+        elif facing == 2:
+            position = px, py + 1
+
+        elif facing == 3:
+            position = px - 1, py
+
+    return painted if mode == 0 else panels
+
+def draw_panels(panels):
+    min_x, min_y, max_x, max_y = inf, inf, -inf, -inf
+    for px, py in panels.keys():
+        min_x = min(px, min_x)
+        min_y = min(py, min_y)
+        max_x = max(px, max_x)
+        max_y = max(py, max_y)
+
+    for y in range(min_y, max_y + 1):
+        row = list()
+        for x in range(min_x, max_x + 1):
+            row.append("." if panels[(x, y)] == 0 else "@")
+
+        print("".join(row))
+
 if __name__ == "__main__":
-    ic = IntCode(Path("aoc9.txt").read_text())
-    #ic = IntCode("9,3,203,-1,99")
-    exit_code, meta = ic.run([1], quiet=True)
-    print("Part 1:", meta["outputs"][-1])
-    
-    exit_code, meta = ic.run([2], quiet=False)
-    print("Part 2:", meta["outputs"][-1])
+    ic = IntCode(Path("../etc/aoc11.txt").read_text())
+
+    painted = robot(ic, 0, True)
+    print("Part 1:", len(painted))
+
+    print("Part 2:")
+    panels = robot(ic, 1, True)
+    draw_panels(panels)

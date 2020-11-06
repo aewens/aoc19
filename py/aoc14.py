@@ -69,7 +69,7 @@ if __name__ == "__main__":
     #    "165 ORE => 2 GPVTF",
     #    "3 DCFZ, 7 NZVS, 5 HKGWZ, 10 PSHF => 8 KHKGT"
     #]))
-    reactions = parse_reactions(Path("aoc14.txt").read_text())
+    reactions = parse_reactions(Path("../etc/aoc14.txt").read_text())
     count = get_chemical_quantity(reactions, "ORE")
     print("Part 1:", count)
     fuel = get_fuel_units(reactions)
