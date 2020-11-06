@@ -10,7 +10,7 @@ import (
 func Cleanup() {
 	r := recover()
 	if r != nil {
-		log.Println("[!] ", r)
+		log.Println("[!]", r)
 		os.Exit(1)
 	}
 	os.Exit(0)
