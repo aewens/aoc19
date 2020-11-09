@@ -6,6 +6,12 @@ import (
 	"strconv"
 )
 
+type Computer struct {
+	Position int
+	Codes    []int
+	Memory   []int
+}
+
 func debug(codes []int, position int) {
 	opcode := codes[position]
 	arg1 := codes[position + 1]
@@ -32,6 +38,14 @@ func readWrite(codes []int, position int, operation func(int, int) int) {
 	checkBounds(codes, position+3)
 	write := codes[position+3]
 	codes[write] = operation(value1, value2)
+}
+
+func save(original []int) []int {
+	backup := make([]int, len(original))
+	for o := range original {
+		backup[o] = original[o]
+	}
+	return backup
 }
 
 func Parser(program string) []int {
@@ -87,6 +101,21 @@ func Reader(codes []int) []int {
 	return codes
 }
 
-func Compute(program string) []int {
-	return Reader(Parser(program))
+func New(program string) *Computer {
+	codes := Parser(program)
+	memory := save(codes)
+
+	return &Computer{
+		Position: 0,
+		Codes:    codes,
+		Memory:   memory,
+	}
+}
+
+func (computer *Computer) Reset() {
+	computer.Memory = save(computer.Codes)
+}
+
+func (computer *Computer) Run() []int {
+	return Reader(computer.Memory)
 }

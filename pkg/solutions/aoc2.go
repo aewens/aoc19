@@ -8,23 +8,13 @@ func init() {
 	Map[2] = Solution2
 }
 
-func save(original []int) []int {
-	backup := make([]int, len(original))
-	for o := range original {
-		backup[o] = original[o]
-	}
-	return backup
-}
-
 func Solution2(lines chan string) {
 	for line := range lines {
-		program := intcode.Parser(line)
-		backup := save(program)
+		computer := intcode.New(line)
+		computer.Memory[1] = 12
+		computer.Memory[2] = 2
 
-		program[1] = 12
-		program[2] = 2
-
-		codes := intcode.Reader(program)
+		codes := computer.Run()
 		Display(1, codes[0])
 
 		searching := true
@@ -33,11 +23,11 @@ func Solution2(lines chan string) {
 				break
 			}
 			for noun := 0; noun <= 99; noun++ {
-				program = save(backup)
-				program[1] = noun
-				program[2] = verb
+				computer.Reset()
+				computer.Memory[1] = noun
+				computer.Memory[2] = verb
 
-				output := intcode.Reader(program)[0]
+				output := computer.Run()[0]
 				if output == 19690720 {
 					searching = false
 					Display(2, 100 * noun + verb)
