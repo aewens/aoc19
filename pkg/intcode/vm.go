@@ -12,39 +12,38 @@ type Computer struct {
 	Memory   []int
 }
 
-func debug(codes []int, position int) {
-	opcode := codes[position]
-	arg1 := codes[position + 1]
-	arg2 := codes[position + 2]
-	arg3 := codes[position + 3]
-	fmt.Printf("[*] %d | %d %d %d\n", opcode, arg1, arg2, arg3)
-}
+//func debug(computer *Computer) {
+//	opcode := computer.Memory[computer.Position]
+//	arg1 := computer.Memory[computer.Position + 1]
+//	arg2 := computer.Memory[computer.Position + 2]
+//	arg3 := computer.Memory[computer.Position + 3]
+//	fmt.Printf("[*] %d | %d %d %d\n", opcode, arg1, arg2, arg3)
+//}
 
-func checkBounds(codes []int, position int) {
-	if position < 0 || position >= len(codes) {
+func checkBounds(computer *Computer, offset int) {
+	position := computer.Position + offset
+	if position < 0 || position >= len(computer.Memory) {
 		panic(fmt.Sprintf("Index %d is out of bounds", position))
 	}
 }
 
-func readWrite(codes []int, position int, operation func(int, int) int) {
-	checkBounds(codes, position+1)
-	read1 := codes[position+1]
-	value1 := codes[read1]
+func readWrite(computer *Computer, operation func(int, int) int) {
+	checkBounds(computer, 1)
+	read1 := computer.Memory[computer.Position+1]
+	value1 := computer.Memory[read1]
 
-	checkBounds(codes, position+2)
-	read2 := codes[position+2]
-	value2 := codes[read2]
+	checkBounds(computer, 2)
+	read2 := computer.Memory[computer.Position+2]
+	value2 := computer.Memory[read2]
 
-	checkBounds(codes, position+3)
-	write := codes[position+3]
-	codes[write] = operation(value1, value2)
+	checkBounds(computer, 3)
+	write := computer.Memory[computer.Position+3]
+	computer.Memory[write] = operation(value1, value2)
 }
 
 func save(original []int) []int {
 	backup := make([]int, len(original))
-	for o := range original {
-		backup[o] = original[o]
-	}
+	copy(backup, original)
 	return backup
 }
 
@@ -63,44 +62,6 @@ func Parser(program string) []int {
 	return codes
 }
 
-func Reader(codes []int) []int {
-	halt := false
-	position := 0
-	for {
-		if halt {
-			break
-		}
-
-		checkBounds(codes, position)
-		opcode := codes[position]
-
-		switch opcode {
-		case 1:
-			//debug(codes, position)
-			readWrite(codes, position, func(a int, b int) int {
-				return a + b
-			})
-
-		case 2:
-			//debug(codes, position)
-			readWrite(codes, position, func(a int, b int) int {
-				return a * b
-			})
-
-		case 99:
-			halt = true
-			break
-
-		default:
-			panic(fmt.Sprintf("Invalid opcode: %d", opcode))
-		}
-
-		position = position + 4
-	}
-
-	return codes
-}
-
 func New(program string) *Computer {
 	codes := Parser(program)
 	memory := save(codes)
@@ -113,9 +74,48 @@ func New(program string) *Computer {
 }
 
 func (computer *Computer) Reset() {
+	computer.Position = 0
 	computer.Memory = save(computer.Codes)
 }
 
+func (computer *Computer) Load(program string) {
+	computer.Codes = Parser(program)
+	computer.Reset()
+}
+
 func (computer *Computer) Run() []int {
-	return Reader(computer.Memory)
+	halt := false
+
+	for {
+		checkBounds(computer, 0)
+		opcode := computer.Memory[computer.Position]
+
+		switch opcode {
+		case 1:
+			//debug(computer)
+			readWrite(computer, func(a int, b int) int {
+				return a + b
+			})
+
+		case 2:
+			//debug(computer)
+			readWrite(computer, func(a int, b int) int {
+				return a * b
+			})
+
+		case 99:
+			halt = true
+
+		default:
+			panic(fmt.Sprintf("Invalid opcode: %d", opcode))
+		}
+
+		if halt {
+			break
+		}
+
+		computer.Position = computer.Position + 4
+	}
+
+	return computer.Memory
 }

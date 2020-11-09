@@ -31,33 +31,29 @@ func TestParser(t *testing.T) {
 	}
 }
 
-func TestCompute(t *testing.T) {
+func TestComputer(t *testing.T) {
 	defer Cleanup(t)
 
-	program1 := "1,9,10,3,2,3,11,0,99,30,40,50"
-	codes1 := Compute(program1)
-
+	computer := New("1,9,10,3,2,3,11,0,99,30,40,50")
+	codes1 := computer.Run()
 	if codes1[0] != 3500 {
 		t.Fatal("Program 1 was read incorrectly")
 	}
 
-	program2 := "2,3,0,3,99"
-	codes2 := Compute(program2)
-
+	computer.Load("2,3,0,3,99")
+	codes2 := computer.Run()
 	if codes2[3] != 6 {
 		t.Fatal("Program 2 was read incorrectly")
 	}
 
-	program3 := "2,4,4,5,99,0"
-	codes3 := Compute(program3)
-
+	computer.Load("2,4,4,5,99,0")
+	codes3 := computer.Run()
 	if codes3[5] != 9801 {
 		t.Fatal("Program 3 was read incorrectly")
 	}
 
-	program4 := "1,1,1,4,99,5,6,0,99"
-	codes4 := Compute(program4)
-
+	computer.Load("1,1,1,4,99,5,6,0,99")
+	codes4 := computer.Run()
 	if codes4[0] != 30 {
 		t.Fatal("Program 4 was read incorrectly")
 	}
