@@ -10,8 +10,9 @@ type Point struct {
 }
 
 type Cabling struct {
-	Closest int
-	Grid    map[Point][]int
+	ClosestSignal int
+	ClosestOrigin int
+	Grid          map[Point][][]int
 }
 
 func abs(x int) int {
@@ -22,9 +23,10 @@ func abs(x int) int {
 	return x
 }
 
-func push(xs []int, y int) []int {
+func push(xs [][]int, y []int) [][]int {
+	// Check if first index of y exists in xs
 	for _, x := range xs {
-		if x == y {
+		if x[0] == y[0] {
 			return xs
 		}
 	}
@@ -37,24 +39,35 @@ func getDistance(point Point) int {
 }
 
 func checkPoint(cabling *Cabling, point Point) {
-	if len(cabling.Grid[point]) > 1 {
+	stats := cabling.Grid[point]
+	if len(stats) > 1 {
 		distance := getDistance(point)
-		if cabling.Closest == -1 {
-			cabling.Closest = distance
-		} else {
-			if distance < cabling.Closest {
-				cabling.Closest = distance
-			}
+		if cabling.ClosestOrigin == -1 {
+			cabling.ClosestOrigin = distance
+		} else if distance < cabling.ClosestOrigin {
+			cabling.ClosestOrigin = distance
+		}
+
+		totalSteps := 0
+		for _, stat := range stats {
+			steps := stat[1]
+			totalSteps = totalSteps + steps
+		}
+
+		if cabling.ClosestSignal == -1 {
+			cabling.ClosestSignal = totalSteps
+		} else if totalSteps < cabling.ClosestSignal {
+			cabling.ClosestSignal = totalSteps
 		}
 	}
 }
 
 func PlotWire(cabling *Cabling, instructions []string, w int) {
-	x, y := 0, 0
+	x, y, steps := 0, 0, 0
 	for _, instruction := range instructions {
-		steps := StringToInt(instruction[1:])
+		length := StringToInt(instruction[1:])
 
-		for step := 0; step < steps; step++ {
+		for l := 0; l < length; l++ {
 			switch instruction[0] {
 			case 'U':
 				y = y + 1
@@ -68,8 +81,9 @@ func PlotWire(cabling *Cabling, instructions []string, w int) {
 				panic("Invalid instruction")
 			}
 
+			steps = steps + 1
 			point := Point{x, y}
-			cabling.Grid[point] = push(cabling.Grid[point], w)
+			cabling.Grid[point] = push(cabling.Grid[point], []int{w, steps})
 			checkPoint(cabling, point)
 		}
 	}
@@ -78,8 +92,9 @@ func PlotWire(cabling *Cabling, instructions []string, w int) {
 func Solution3(lines chan string) {
 	wire := 0
 	cabling := &Cabling{
-		Closest: -1,
-		Grid:    make(map[Point][]int),
+		ClosestOrigin: -1,
+		ClosestSignal: -1,
+		Grid:          make(map[Point][][]int),
 	}
 
 	for line := range lines {
@@ -88,5 +103,6 @@ func Solution3(lines chan string) {
 		PlotWire(cabling, instructions, wire)
 	}
 
-	Display(1, cabling.Closest)
+	Display(1, cabling.ClosestOrigin)
+	Display(2, cabling.ClosestSignal)
 }

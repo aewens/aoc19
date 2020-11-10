@@ -28,13 +28,15 @@ func TestPlotWire(t *testing.T) {
 		"U98,R91,D20,R16,D67,R40,U7,R15,U6,R7",
 	})
 
-	distances := []int{6, 159, 135}
+	distances := []int{6,159,135}
+	steps := []int{30,610,410}
 
 	for i, test := range tests {
 		wire := 0
 		cabling := &Cabling{
-			Closest: -1,
-			Grid:    make(map[Point][]int),
+			ClosestOrigin: -1,
+			ClosestSignal: -1,
+			Grid:          make(map[Point][][]int),
 		}
 
 		for _, path := range test {
@@ -44,8 +46,13 @@ func TestPlotWire(t *testing.T) {
 		}
 
 		distance := distances[i]
-		if distance != cabling.Closest {
-			t.Fatalf("Wrong distance: %d | %d", distance, cabling.Closest)
+		if distance != cabling.ClosestOrigin {
+			t.Fatalf("Wrong distance: %d | %d", distance, cabling.ClosestOrigin)
+		}
+
+		step := steps[i]
+		if step != cabling.ClosestSignal {
+			t.Fatalf("Wrong step: %d | %d", step, cabling.ClosestSignal)
 		}
 	}
 }
