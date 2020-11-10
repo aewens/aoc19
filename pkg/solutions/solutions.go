@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"bufio"
 	"strconv"
+	"strings"
 )
 
 type Solutions map[int]func(chan string)
@@ -48,4 +49,8 @@ func StringToInt(convert string) int {
 func IntToString(convert int) string {
 	value := strconv.Itoa(convert)
 	return value
+}
+
+func FromCSV(source string) []string {
+	return strings.Split(source, ",")
 }
