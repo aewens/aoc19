@@ -4,7 +4,7 @@ func init() {
 	Map[4] = Solution4
 }
 
-func hasDoubles(check rune, seen map[rune]bool) bool {
+func hasRepeats(check rune, seen map[rune]bool) bool {
 	_, ok := seen[check]
 	if ok {
 		return true
@@ -18,17 +18,25 @@ func doesDecrease(check int, previous int) bool {
 	return check < previous
 }
 
-func ValidGuess(guess int) bool {
+func ValidGuess(guess int) []bool {
 	seen := make(map[rune]bool)
+	doubles := make(map[rune]bool)
 	previous := -1
+	prevPrevious := -1
 
-	doubles := false
+	repeats := false
 	decreases := false
+	double := false
 
 	guessString := IntToString(guess)
 	for _, gs := range guessString {
-		if !doubles && hasDoubles(gs, seen) {
-			doubles = true
+		if hasRepeats(gs, seen) {
+			if !repeats {
+				repeats = true
+			}
+
+			double = true
+			doubles[gs] = true
 		}
 
 		gsi := RuneToInt(gs)
@@ -37,10 +45,26 @@ func ValidGuess(guess int) bool {
 			continue
 		}
 
+		if gsi == previous && previous == prevPrevious && doubles[gs] {
+			doubles[gs] = false
+			double = false
+			for _, isDouble := range doubles {
+				if isDouble {
+					double = true
+					break
+				}
+			}
+		}
+
+		if previous != -1 {
+			prevPrevious = previous
+		}
 		previous = gsi
 	}
 
-	return doubles && !decreases
+	valid1 := repeats && !decreases
+	valid2 := valid1 && double
+	return []bool{valid1,valid2}
 }
 
 func Solution4(lines chan string) {
@@ -48,12 +72,19 @@ func Solution4(lines chan string) {
 	rangeStart := StringToInt(passwordRange[0])
 	rangeEnd := StringToInt(passwordRange[1])
 
-	validGuesses := 0
+	validGuesses := []int{0,0}
 	for guess := rangeStart; guess <= rangeEnd; guess++ {
-		if ValidGuess(guess) {
-			validGuesses = validGuesses + 1
+		valid := ValidGuess(guess)
+
+		if valid[0] {
+			validGuesses[0] = validGuesses[0] + 1
+		}
+
+		if valid[1] {
+			validGuesses[1] = validGuesses[1] + 1
 		}
 	}
 
-	Display(1, validGuesses)
+	Display(1, validGuesses[0])
+	Display(2, validGuesses[1])
 }
