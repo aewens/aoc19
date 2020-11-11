@@ -9,11 +9,13 @@ import (
 )
 
 type FlagState struct {
-	Problem int
+	Problem  int
+	Override string
 }
 
 func parseFlags() *FlagState {
 	problemFlag := flag.Int("p", -1, "Problem index to run")
+	overrideFlag := flag.String("o", "", "Override problem file with own input")
 	flag.Parse()
 
 	if *problemFlag == -1 {
@@ -26,6 +28,7 @@ func parseFlags() *FlagState {
 
 	state := &FlagState{
 		Problem: *problemFlag,
+		Override: *overrideFlag,
 	}
 
 	return state
@@ -37,10 +40,17 @@ func main() {
 
 	state := parseFlags()
 	problem := state.Problem
-
 	lines := make(chan string)
-	inputFile := fmt.Sprintf("etc/aoc%d.txt", problem)
 
-	go solutions.ReadLines(inputFile, lines)
+	if len(state.Override) == 0 {
+		inputFile := fmt.Sprintf("etc/aoc%d.txt", problem)
+
+		go solutions.ReadLines(inputFile, lines)
+	} else {
+		go func() {
+			lines <-state.Override
+		}()
+	}
+
 	solutions.Map[problem](lines)
 }
