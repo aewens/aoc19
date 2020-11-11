@@ -57,4 +57,10 @@ func TestComputer(t *testing.T) {
 	if codes4[0] != 30 {
 		t.Fatal("Program 4 was read incorrectly")
 	}
+
+	computer.Load("1101,100,-1,4,0,99")
+	codes5 := computer.Run()
+	if codes5[4] != 99 {
+		t.Fatal("Program 5 was read incorrectly")
+	}
 }

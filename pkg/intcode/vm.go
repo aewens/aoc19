@@ -3,42 +3,19 @@ package intcode
 import (
 	"fmt"
 	"strings"
-	"strconv"
+
+	"github.com/aewens/aoc19/pkg/utilities"
 )
 
 type Computer struct {
-	Position int
-	Codes    []int
-	Memory   []int
+	Position  int
+	Codes     []int
+	Memory    []int
 }
 
-//func debug(computer *Computer) {
-//	opcode := computer.Memory[computer.Position]
-//	arg1 := computer.Memory[computer.Position + 1]
-//	arg2 := computer.Memory[computer.Position + 2]
-//	arg3 := computer.Memory[computer.Position + 3]
-//	fmt.Printf("[*] %d | %d %d %d\n", opcode, arg1, arg2, arg3)
-//}
-
-func checkBounds(computer *Computer, offset int) {
-	position := computer.Position + offset
-	if position < 0 || position >= len(computer.Memory) {
-		panic(fmt.Sprintf("Index %d is out of bounds", position))
-	}
-}
-
-func readWrite(computer *Computer, operation func(int, int) int) {
-	checkBounds(computer, 1)
-	read1 := computer.Memory[computer.Position+1]
-	value1 := computer.Memory[read1]
-
-	checkBounds(computer, 2)
-	read2 := computer.Memory[computer.Position+2]
-	value2 := computer.Memory[read2]
-
-	checkBounds(computer, 3)
-	write := computer.Memory[computer.Position+3]
-	computer.Memory[write] = operation(value1, value2)
+type Opcode struct {
+	Value int
+	Modes []int
 }
 
 func save(original []int) []int {
@@ -52,10 +29,7 @@ func Parser(program string) []int {
 
 	instructions := strings.Split(program, ",")
 	for _, instruction := range instructions {
-		code, err := strconv.Atoi(instruction)
-		if err != nil {
-			panic(err)
-		}
+		code := utilities.StringToInt(instruction)
 		codes = append(codes, code)
 	}
 
@@ -73,35 +47,146 @@ func New(program string) *Computer {
 	}
 }
 
-func (computer *Computer) Reset() {
-	computer.Position = 0
-	computer.Memory = save(computer.Codes)
+func (computer *Computer) CheckAddress(address int) {
+	if address < 0 || address >= len(computer.Memory) {
+		panic(fmt.Sprintf("Address %d is out of bounds", address))
+	}
 }
 
-func (computer *Computer) Load(program string) {
-	computer.Codes = Parser(program)
-	computer.Reset()
+func (computer *Computer) ReadMemory(address int) int {
+	computer.CheckAddress(address)
+	return computer.Memory[address]
 }
+
+func (computer *Computer) WriteMemory(address int, value int) {
+	computer.CheckAddress(address)
+	computer.Memory[address] = value
+}
+
+func (computer *Computer) Next() {
+	computer.Position = computer.Position + 1
+}
+
+func (computer *Computer) Read() int {
+	return computer.ReadMemory(computer.Position)
+}
+
+func (computer *Computer) ReadNext() int {
+	computer.Next()
+	return computer.Read()
+}
+
+func (computer *Computer) ReadFromNext() int {
+	return computer.ReadMemory(computer.ReadNext())
+}
+
+func (computer *Computer) ReadNextGivenMode(mode int) int {
+	switch mode {
+	case 0:
+		return computer.ReadFromNext()
+
+	case 1:
+		return computer.ReadNext()
+
+	default:
+		panic(fmt.Sprintf("Unknown mode: %d", mode))
+	}
+}
+
+func (computer *Computer) WriteToNext(value int) {
+	computer.WriteMemory(computer.ReadNext(), value)
+}
+
+func (computer *Computer) WriteNextGivenMode(mode int, value int) {
+	switch mode {
+	case 0:
+		computer.WriteToNext(value)
+
+	case 1:
+		panic("Illegal mode for write operations")
+
+	default:
+		panic(fmt.Sprintf("Unknown mode: %d", mode))
+	}
+}
+
+func (computer *Computer) ReadOpcode() *Opcode {
+	modes := []int{}
+	value := computer.Read()
+	if value == 99 {
+		return &Opcode{value, modes}
+	}
+
+	parsed := utilities.IntToString(value)
+	parsedSize := len(parsed)
+	if parsedSize < 2 {
+		parsed = "0" + parsed
+		parsedSize = 2
+	}
+
+	opcode := utilities.StringToInt(parsed[parsedSize-2:])
+
+	params := parsed[:parsedSize-2]
+	paramsSize := len(params)
+
+	expectedModes := make(map[int]int)
+	expectedModes[1] = 3
+	expectedModes[2] = 3
+	expectedModes[3] = 1
+	expectedModes[4] = 1
+
+	expecting, ok := expectedModes[opcode]
+	if !ok {
+		panic(fmt.Sprintf("Unknown mode: %d", opcode))
+	}
+
+	// Left-pad the missing zeroes
+	if paramsSize < expecting {
+		for e := 0; e < expecting - paramsSize; e++ {
+			params = "0" + params
+		}
+		paramsSize = expecting
+	}
+
+	for p := 1; p <= paramsSize; p++  {
+		param := rune(params[paramsSize-p])
+		mode := utilities.RuneToInt(param)
+		modes = append(modes, mode)
+	}
+
+	return &Opcode{opcode, modes}
+}
+
 
 func (computer *Computer) Run() []int {
 	halt := false
 
 	for {
-		checkBounds(computer, 0)
-		opcode := computer.Memory[computer.Position]
+		opcode := computer.ReadOpcode()
 
-		switch opcode {
+		switch opcode.Value {
 		case 1:
-			//debug(computer)
-			readWrite(computer, func(a int, b int) int {
-				return a + b
-			})
+			value1 := computer.ReadNextGivenMode(opcode.Modes[0])
+			value2 := computer.ReadNextGivenMode(opcode.Modes[1])
+			computer.WriteNextGivenMode(opcode.Modes[2], value1 + value2)
 
 		case 2:
-			//debug(computer)
-			readWrite(computer, func(a int, b int) int {
-				return a * b
-			})
+			value1 := computer.ReadNextGivenMode(opcode.Modes[0])
+			value2 := computer.ReadNextGivenMode(opcode.Modes[1])
+			computer.WriteNextGivenMode(opcode.Modes[2], value1 * value2)
+
+		case 3:
+			var input int
+			_, err := fmt.Scan(&input)
+			if err != nil {
+				panic(err)
+			}
+
+			computer.WriteNextGivenMode(opcode.Modes[0], input)
+
+		case 4:
+			value := computer.ReadNextGivenMode(opcode.Modes[0])
+			fmt.Printf("%d\n", value)
 
 		case 99:
 			halt = true
@@ -114,8 +199,18 @@ func (computer *Computer) Run() []int {
 			break
 		}
 
-		computer.Position = computer.Position + 4
+		computer.Next()
 	}
 
 	return computer.Memory
+}
+
+func (computer *Computer) Reset() {
+	computer.Position = 0
+	computer.Memory = save(computer.Codes)
+}
+
+func (computer *Computer) Load(program string) {
+	computer.Codes = Parser(program)
+	computer.Reset()
 }
