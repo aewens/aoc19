@@ -1,5 +1,9 @@
 package solutions
 
+import (
+	"github.com/aewens/aoc19/pkg/utilities"
+)
+
 func init() {
 	Map[1] = Solution1
 }
@@ -21,7 +25,7 @@ func Solution1(lines chan string) {
 	fuel := 0
 	moduleFuel := 0
 	for line := range lines {
-		mass := StringToInt(line)
+		mass := utilities.StringToInt(line)
 		neededFuel := getFuel(mass)
 		fuelFuel := getFuelFuel(neededFuel)
 

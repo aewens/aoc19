@@ -4,7 +4,6 @@ import (
 	"os"
 	"fmt"
 	"bufio"
-	"strconv"
 	"strings"
 )
 
@@ -35,24 +34,6 @@ func ReadLines(path string, lines chan string) {
 
 func Display(answer int, text interface{}) {
 	fmt.Printf("[%d] %#v\n", answer, text)
-}
-
-func StringToInt(convert string) int {
-	value, err := strconv.Atoi(convert)
-	if err != nil {
-		panic(err)
-	}
-
-	return value
-}
-
-func RuneToInt(convert rune) int {
-	return int(convert - '0')
-}
-
-func IntToString(convert int) string {
-	value := strconv.Itoa(convert)
-	return value
 }
 
 func FromCSV(source string) []string {

@@ -1,5 +1,9 @@
 package solutions
 
+import (
+	"github.com/aewens/aoc19/pkg/utilities"
+)
+
 func init() {
 	Map[3] = Solution3
 }
@@ -65,7 +69,7 @@ func checkPoint(cabling *Cabling, point Point) {
 func PlotWire(cabling *Cabling, instructions []string, w int) {
 	x, y, steps := 0, 0, 0
 	for _, instruction := range instructions {
-		length := StringToInt(instruction[1:])
+		length := utilities.StringToInt(instruction[1:])
 
 		for l := 0; l < length; l++ {
 			switch instruction[0] {

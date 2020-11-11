@@ -1,5 +1,9 @@
 package solutions
 
+import (
+	"github.com/aewens/aoc19/pkg/utilities"
+)
+
 func init() {
 	Map[4] = Solution4
 }
@@ -28,7 +32,7 @@ func ValidGuess(guess int) []bool {
 	decreases := false
 	double := false
 
-	guessString := IntToString(guess)
+	guessString := utilities.IntToString(guess)
 	for _, gs := range guessString {
 		if hasRepeats(gs, seen) {
 			if !repeats {
@@ -39,7 +43,7 @@ func ValidGuess(guess int) []bool {
 			doubles[gs] = true
 		}
 
-		gsi := RuneToInt(gs)
+		gsi := utilities.RuneToInt(gs)
 		if doesDecrease(gsi, previous) {
 			decreases = true
 			continue
@@ -69,8 +73,8 @@ func ValidGuess(guess int) []bool {
 
 func Solution4(lines chan string) {
 	passwordRange := Separate(<-lines, "-")
-	rangeStart := StringToInt(passwordRange[0])
-	rangeEnd := StringToInt(passwordRange[1])
+	rangeStart := utilities.StringToInt(passwordRange[0])
+	rangeEnd := utilities.StringToInt(passwordRange[1])
 
 	validGuesses := []int{0,0}
 	for guess := rangeStart; guess <= rangeEnd; guess++ {
