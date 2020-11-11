@@ -46,6 +46,10 @@ func StringToInt(convert string) int {
 	return value
 }
 
+func RuneToInt(convert rune) int {
+	return int(convert - '0')
+}
+
 func IntToString(convert int) string {
 	value := strconv.Itoa(convert)
 	return value
@@ -53,4 +57,8 @@ func IntToString(convert int) string {
 
 func FromCSV(source string) []string {
 	return strings.Split(source, ",")
+}
+
+func Separate(source string, delim string) []string {
+	return strings.Split(source, delim)
 }
