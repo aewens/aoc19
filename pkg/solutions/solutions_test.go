@@ -56,3 +56,19 @@ func TestPlotWire(t *testing.T) {
 		}
 	}
 }
+
+func TestValidGuess(t *testing.T) {
+	defer Cleanup(t)
+
+	if !ValidGuess(111111) {
+		t.Fatal("Not checking correctly: 111111")
+	}
+
+	if ValidGuess(223450) {
+		t.Fatal("Not checking correctly: 223450")
+	}
+
+	if ValidGuess(123789) {
+		t.Fatal("Not checking correctly: 123789")
+	}
+}
