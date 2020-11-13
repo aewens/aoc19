@@ -1,11 +1,11 @@
 package utilities
 
 import (
-	"os"
 	"log"
+	"os"
+	"os/signal"
 	"strconv"
 	"syscall"
-	"os/signal"
 )
 
 func Cleanup() {

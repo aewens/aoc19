@@ -41,7 +41,7 @@ func Parser(program string) []int {
 func New(program string) *Computer {
 	codes := Parser(program)
 	memory := save(codes)
-	
+
 	var inBuffer chan int = nil
 	var outBuffer chan int = nil
 
@@ -170,13 +170,13 @@ func (computer *Computer) ReadOpcode(value int) *Opcode {
 
 	// Left-pad the missing zeroes
 	if paramsSize < expecting {
-		for e := 0; e < expecting - paramsSize; e++ {
+		for e := 0; e < expecting-paramsSize; e++ {
 			params = "0" + params
 		}
 		paramsSize = expecting
 	}
 
-	for p := 1; p <= paramsSize; p++  {
+	for p := 1; p <= paramsSize; p++ {
 		param := rune(params[paramsSize-p])
 		mode := utilities.RuneToInt(param)
 		modes = append(modes, mode)
@@ -200,13 +200,13 @@ func (computer *Computer) Run() []int {
 		case 1: // ADD
 			value1 := computer.ReadNextGivenMode(opcode.Modes[0])
 			value2 := computer.ReadNextGivenMode(opcode.Modes[1])
-			computer.WriteNextGivenMode(opcode.Modes[2], value1 + value2)
+			computer.WriteNextGivenMode(opcode.Modes[2], value1+value2)
 			computer.Next()
 
 		case 2: // MUL
 			value1 := computer.ReadNextGivenMode(opcode.Modes[0])
 			value2 := computer.ReadNextGivenMode(opcode.Modes[1])
-			computer.WriteNextGivenMode(opcode.Modes[2], value1 * value2)
+			computer.WriteNextGivenMode(opcode.Modes[2], value1*value2)
 			computer.Next()
 
 		case 3: // GET
@@ -234,7 +234,7 @@ func (computer *Computer) Run() []int {
 			if computer.OutBuffer == nil {
 				fmt.Println(value)
 			} else {
-				computer.OutBuffer <-value
+				computer.OutBuffer <- value
 				//fmt.Println(value)
 			}
 			computer.Next()

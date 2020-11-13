@@ -36,7 +36,7 @@ func Solution1(lines chan string) {
 			break
 		}
 	}
-	
+
 	Display(1, moduleFuel)
-	Display(2, moduleFuel + fuel)
+	Display(2, moduleFuel+fuel)
 }

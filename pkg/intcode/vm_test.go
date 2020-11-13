@@ -17,7 +17,7 @@ func TestParser(t *testing.T) {
 	program := "1,9,10,3,2,3,11,0,99,30,40,50"
 	codes := Parser(program)
 
-	correctCodes := []int{1,9,10,3,2,3,11,0,99,30,40,50}
+	correctCodes := []int{1, 9, 10, 3, 2, 3, 11, 0, 99, 30, 40, 50}
 
 	if len(codes) != len(correctCodes) {
 		t.Fatal("Program was parsed to the wrong size")
@@ -72,19 +72,19 @@ func TestComputer(t *testing.T) {
 	}
 
 	results := [][]int{
-		[]int{3,6},
-		[]int{5,9801},
-		[]int{0,30},
-		[]int{4,99},
-		[]int{7,1},
-		[]int{7,0},
-		[]int{5,1},
-		[]int{5,0},
-		[]int{5,0},
-		[]int{9,0},
-		[]int{9,1},
-		[]int{8,1},
-		[]int{8,0},
+		[]int{3, 6},
+		[]int{5, 9801},
+		[]int{0, 30},
+		[]int{4, 99},
+		[]int{7, 1},
+		[]int{7, 0},
+		[]int{5, 1},
+		[]int{5, 0},
+		[]int{5, 0},
+		[]int{9, 0},
+		[]int{9, 1},
+		[]int{8, 1},
+		[]int{8, 0},
 	}
 
 	for p, program := range programs {
@@ -92,7 +92,7 @@ func TestComputer(t *testing.T) {
 		codes = computer.Run()
 		result := results[p]
 		if codes[result[0]] != result[1] {
-			t.Fatalf("Program %d was read incorrectly", p + 2)
+			t.Fatalf("Program %d was read incorrectly", p+2)
 		}
 	}
 }

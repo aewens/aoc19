@@ -30,7 +30,7 @@ func Solution2(lines chan string) {
 				output := computer.Run()[0]
 				if output == 19690720 {
 					searching = false
-					Display(2, 100 * noun + verb)
+					Display(2, 100*noun+verb)
 					break
 				}
 			}

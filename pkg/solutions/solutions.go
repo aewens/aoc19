@@ -1,13 +1,14 @@
 package solutions
 
 import (
-	"os"
-	"fmt"
 	"bufio"
+	"fmt"
+	"os"
 	"strings"
 )
 
 type Solutions map[int]func(chan string)
+
 var Map Solutions = make(Solutions)
 
 func ReadLines(path string, lines chan string) {
@@ -18,10 +19,10 @@ func ReadLines(path string, lines chan string) {
 
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
-	
+
 	for scanner.Scan() {
 		line := scanner.Text()
-		lines <-line
+		lines <- line
 	}
 
 	close(lines)

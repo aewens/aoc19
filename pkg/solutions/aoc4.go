@@ -68,7 +68,7 @@ func ValidGuess(guess int) []bool {
 
 	valid1 := repeats && !decreases
 	valid2 := valid1 && double
-	return []bool{valid1,valid2}
+	return []bool{valid1, valid2}
 }
 
 func Solution4(lines chan string) {
@@ -76,7 +76,7 @@ func Solution4(lines chan string) {
 	rangeStart := utilities.StringToInt(passwordRange[0])
 	rangeEnd := utilities.StringToInt(passwordRange[1])
 
-	validGuesses := []int{0,0}
+	validGuesses := []int{0, 0}
 	for guess := rangeStart; guess <= rangeEnd; guess++ {
 		valid := ValidGuess(guess)
 

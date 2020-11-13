@@ -13,12 +13,12 @@ func Solution5(lines chan string) {
 
 	go func() {
 		solution := 1
-		computer.InBuffer <-1
+		computer.InBuffer <- 1
 		for output := range computer.OutBuffer {
 			Display(solution, output)
 			if output != 0 {
 				solution = 2
-				computer.InBuffer <-5
+				computer.InBuffer <- 5
 			}
 		}
 	}()

@@ -1,11 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"flag"
+	"fmt"
 
-	"github.com/aewens/aoc19/pkg/utilities"
 	"github.com/aewens/aoc19/pkg/solutions"
+	"github.com/aewens/aoc19/pkg/utilities"
 )
 
 type FlagState struct {
@@ -27,7 +27,7 @@ func parseFlags() *FlagState {
 	}
 
 	state := &FlagState{
-		Problem: *problemFlag,
+		Problem:  *problemFlag,
 		Override: *overrideFlag,
 	}
 
@@ -48,7 +48,7 @@ func main() {
 		go solutions.ReadLines(inputFile, lines)
 	} else {
 		go func() {
-			lines <-state.Override
+			lines <- state.Override
 		}()
 	}
 
