@@ -28,8 +28,8 @@ func TestPlotWire(t *testing.T) {
 		"U98,R91,D20,R16,D67,R40,U7,R15,U6,R7",
 	})
 
-	distances := []int{6,159,135}
-	steps := []int{30,610,410}
+	distances := []int{6, 159, 135}
+	steps := []int{30, 610, 410}
 
 	for i, test := range tests {
 		wire := 0
@@ -82,5 +82,35 @@ func TestValidGuess(t *testing.T) {
 
 	if !ValidGuess(111122)[1] {
 		t.Fatal("Not checking correctly: 111122")
+	}
+}
+
+func TestCountOrbits(t *testing.T) {
+	orbits := &OrbitMap{
+		Forward:  make(map[string][]string),
+		Backward: make(map[string]string),
+	}
+
+	pairs := []string{
+		"COM)B",
+		"B)C",
+		"C)D",
+		"D)E",
+		"E)F",
+		"B)G",
+		"G)H",
+		"D)I",
+		"E)J",
+		"J)K",
+		"K)L",
+	}
+
+	for _, pair := range pairs {
+		BuildOrbitMap(orbits, pair)
+	}
+
+	count := CountOrbits(orbits, "", 0)
+	if count != 42 {
+		t.Fatalf("Count orbits is incorrect: %d", count)
 	}
 }
