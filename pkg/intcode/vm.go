@@ -11,6 +11,8 @@ type Computer struct {
 	Position  int
 	Codes     []int
 	Memory    []int
+	InBuffer  chan int
+	OutBuffer chan int
 }
 
 type Opcode struct {
@@ -39,11 +41,29 @@ func Parser(program string) []int {
 func New(program string) *Computer {
 	codes := Parser(program)
 	memory := save(codes)
+	
+	var inBuffer chan int = nil
+	var outBuffer chan int = nil
 
 	return &Computer{
-		Position: 0,
-		Codes:    codes,
-		Memory:   memory,
+		Position:  0,
+		Codes:     codes,
+		Memory:    memory,
+		InBuffer:  inBuffer,
+		OutBuffer: outBuffer,
+	}
+}
+
+func BufferedNew(program string) *Computer {
+	codes := Parser(program)
+	memory := save(codes)
+
+	return &Computer{
+		Position:  0,
+		Codes:     codes,
+		Memory:    memory,
+		InBuffer:  make(chan int),
+		OutBuffer: make(chan int),
 	}
 }
 
@@ -65,6 +85,11 @@ func (computer *Computer) WriteMemory(address int, value int) {
 
 func (computer *Computer) Next() {
 	computer.Position = computer.Position + 1
+}
+
+func (computer *Computer) Jump(address int) {
+	computer.CheckAddress(address)
+	computer.Position = address
 }
 
 func (computer *Computer) Read() int {
@@ -110,9 +135,8 @@ func (computer *Computer) WriteNextGivenMode(mode int, value int) {
 	}
 }
 
-func (computer *Computer) ReadOpcode() *Opcode {
+func (computer *Computer) ReadOpcode(value int) *Opcode {
 	modes := []int{}
-	value := computer.Read()
 	if value == 99 {
 		return &Opcode{value, modes}
 	}
@@ -134,10 +158,14 @@ func (computer *Computer) ReadOpcode() *Opcode {
 	expectedModes[2] = 3
 	expectedModes[3] = 1
 	expectedModes[4] = 1
+	expectedModes[5] = 2
+	expectedModes[6] = 2
+	expectedModes[7] = 3
+	expectedModes[8] = 3
 
 	expecting, ok := expectedModes[opcode]
 	if !ok {
-		panic(fmt.Sprintf("Unknown mode: %d", opcode))
+		panic(fmt.Sprintf("Unknown mode: %d | %d", value, computer.Position))
 	}
 
 	// Left-pad the missing zeroes
@@ -157,36 +185,99 @@ func (computer *Computer) ReadOpcode() *Opcode {
 	return &Opcode{opcode, modes}
 }
 
+func (computer *Computer) ReadNextOpcode() *Opcode {
+	return computer.ReadOpcode(computer.Read())
+}
 
 func (computer *Computer) Run() []int {
 	halt := false
 
 	for {
-		opcode := computer.ReadOpcode()
+		opcode := computer.ReadNextOpcode()
+		//fmt.Println(opcode)
 
 		switch opcode.Value {
-		case 1:
+		case 1: // ADD
 			value1 := computer.ReadNextGivenMode(opcode.Modes[0])
 			value2 := computer.ReadNextGivenMode(opcode.Modes[1])
 			computer.WriteNextGivenMode(opcode.Modes[2], value1 + value2)
+			computer.Next()
 
-		case 2:
+		case 2: // MUL
 			value1 := computer.ReadNextGivenMode(opcode.Modes[0])
 			value2 := computer.ReadNextGivenMode(opcode.Modes[1])
 			computer.WriteNextGivenMode(opcode.Modes[2], value1 * value2)
+			computer.Next()
 
-		case 3:
+		case 3: // GET
 			var input int
-			_, err := fmt.Scan(&input)
-			if err != nil {
-				panic(err)
+
+			if computer.InBuffer == nil {
+				_, err := fmt.Scan(&input)
+				if err != nil {
+					panic(err)
+				}
+			} else {
+				buffer, ok := <-computer.InBuffer
+				if !ok {
+					panic("Input buffer is empty")
+				}
+
+				input = buffer
 			}
 
 			computer.WriteNextGivenMode(opcode.Modes[0], input)
+			computer.Next()
 
-		case 4:
+		case 4: // SHW
 			value := computer.ReadNextGivenMode(opcode.Modes[0])
-			fmt.Printf("%d\n", value)
+			if computer.OutBuffer == nil {
+				fmt.Println(value)
+			} else {
+				computer.OutBuffer <-value
+				//fmt.Println(value)
+			}
+			computer.Next()
+
+		case 5: // JIT
+			check := computer.ReadNextGivenMode(opcode.Modes[0])
+			position := computer.ReadNextGivenMode(opcode.Modes[1])
+			if check != 0 {
+				computer.Jump(position)
+			} else {
+				computer.Next()
+			}
+
+		case 6: // JIF
+			check := computer.ReadNextGivenMode(opcode.Modes[0])
+			position := computer.ReadNextGivenMode(opcode.Modes[1])
+			if check == 0 {
+				computer.Jump(position)
+			} else {
+				computer.Next()
+			}
+
+		case 7: // LST
+			value1 := computer.ReadNextGivenMode(opcode.Modes[0])
+			value2 := computer.ReadNextGivenMode(opcode.Modes[1])
+			if value1 < value2 {
+				computer.WriteNextGivenMode(opcode.Modes[2], 1)
+			} else {
+				computer.WriteNextGivenMode(opcode.Modes[2], 0)
+			}
+
+			computer.Next()
+
+		case 8: // EQT
+			value1 := computer.ReadNextGivenMode(opcode.Modes[0])
+			value2 := computer.ReadNextGivenMode(opcode.Modes[1])
+			if value1 == value2 {
+				computer.WriteNextGivenMode(opcode.Modes[2], 1)
+			} else {
+				computer.WriteNextGivenMode(opcode.Modes[2], 0)
+			}
+
+			computer.Next()
 
 		case 99:
 			halt = true
@@ -198,8 +289,6 @@ func (computer *Computer) Run() []int {
 		if halt {
 			break
 		}
-
-		computer.Next()
 	}
 
 	return computer.Memory
