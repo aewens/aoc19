@@ -86,10 +86,7 @@ func TestValidGuess(t *testing.T) {
 }
 
 func TestCountOrbits(t *testing.T) {
-	orbits := &OrbitMap{
-		Forward:  make(map[string][]string),
-		Backward: make(map[string]string),
-	}
+	orbits := make(OrbitMap)
 
 	pairs := []string{
 		"COM)B",
@@ -112,5 +109,34 @@ func TestCountOrbits(t *testing.T) {
 	count := CountOrbits(orbits, "", 0)
 	if count != 42 {
 		t.Fatalf("Count orbits is incorrect: %d", count)
+	}
+}
+
+func TestFindOrbitPath(t *testing.T) {
+	orbits := make(OrbitMap)
+
+	pairs := []string{
+		"COM)B",
+		"B)C",
+		"C)D",
+		"D)E",
+		"E)F",
+		"B)G",
+		"G)H",
+		"D)I",
+		"E)J",
+		"J)K",
+		"K)L",
+		"K)YOU",
+		"I)SAN",
+	}
+
+	for _, pair := range pairs {
+		BuildOrbitMap(orbits, pair)
+	}
+
+	path := FindOrbitPath(orbits, "YOU", "SAN")
+	if len(path) != len([]string{"K", "J", "E", "D", "I"}) {
+		t.Fatalf("Found wrong path: %#v", path)
 	}
 }
