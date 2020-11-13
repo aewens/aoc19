@@ -1,9 +1,5 @@
 package solutions
 
-//import (
-//	"github.com/aewens/aoc19/pkg/utilities"
-//)
-
 func init() {
 	Map[6] = Solution6
 }
