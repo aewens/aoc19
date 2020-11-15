@@ -13,6 +13,7 @@ type Computer struct {
 	Memory    []int
 	InBuffer  chan int
 	OutBuffer chan int
+//	Halted    chan bool
 }
 
 type Opcode struct {
@@ -51,6 +52,7 @@ func New(program string) *Computer {
 		Memory:    memory,
 		InBuffer:  inBuffer,
 		OutBuffer: outBuffer,
+//		Halted:    make(chan bool),
 	}
 }
 
@@ -64,6 +66,7 @@ func BufferedNew(program string) *Computer {
 		Memory:    memory,
 		InBuffer:  make(chan int),
 		OutBuffer: make(chan int),
+//		Halted:    make(chan bool),
 	}
 }
 
@@ -281,6 +284,7 @@ func (computer *Computer) Run() []int {
 
 		case 99:
 			halt = true
+//			computer.Halted <-true
 
 		default:
 			panic(fmt.Sprintf("Invalid opcode: %d", opcode))
@@ -301,5 +305,24 @@ func (computer *Computer) Reset() {
 
 func (computer *Computer) Load(program string) {
 	computer.Codes = Parser(program)
+	computer.Reset()
+}
+
+func (computer *Computer) Input(value int) {
+	if computer.InBuffer == nil {
+		panic("Cannot input without buffers")
+	}
+	computer.InBuffer <- value
+}
+
+func (computer *Computer) Output() int {
+	if computer.OutBuffer == nil {
+		panic("Cannot output without buffers")
+	}
+	return <-computer.OutBuffer
+}
+
+func (computer *Computer) RunAndReset() {
+	computer.Run()
 	computer.Reset()
 }
