@@ -3,6 +3,7 @@
 *.swo
 test.py
 aoc.o
+scratch/
 
 # ---> Python
 # Byte-compiled / optimized / DLL files
