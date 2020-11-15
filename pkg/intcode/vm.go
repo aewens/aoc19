@@ -13,7 +13,7 @@ type Computer struct {
 	Memory    []int
 	InBuffer  chan int
 	OutBuffer chan int
-//	Halted    chan bool
+	Halted    bool
 }
 
 type Opcode struct {
@@ -52,7 +52,7 @@ func New(program string) *Computer {
 		Memory:    memory,
 		InBuffer:  inBuffer,
 		OutBuffer: outBuffer,
-//		Halted:    make(chan bool),
+		Halted:    false,
 	}
 }
 
@@ -66,7 +66,7 @@ func BufferedNew(program string) *Computer {
 		Memory:    memory,
 		InBuffer:  make(chan int),
 		OutBuffer: make(chan int),
-//		Halted:    make(chan bool),
+		Halted:    false,
 	}
 }
 
@@ -192,105 +192,119 @@ func (computer *Computer) ReadNextOpcode() *Opcode {
 	return computer.ReadOpcode(computer.Read())
 }
 
-func (computer *Computer) Run() []int {
-	halt := false
+func (computer *Computer) Step() {
+	opcode := computer.ReadNextOpcode()
+	//fmt.Println(opcode)
 
-	for {
-		opcode := computer.ReadNextOpcode()
-		//fmt.Println(opcode)
+	switch opcode.Value {
+	case 1: // ADD
+		value1 := computer.ReadNextGivenMode(opcode.Modes[0])
+		value2 := computer.ReadNextGivenMode(opcode.Modes[1])
+		computer.WriteNextGivenMode(opcode.Modes[2], value1+value2)
+		computer.Next()
 
-		switch opcode.Value {
-		case 1: // ADD
-			value1 := computer.ReadNextGivenMode(opcode.Modes[0])
-			value2 := computer.ReadNextGivenMode(opcode.Modes[1])
-			computer.WriteNextGivenMode(opcode.Modes[2], value1+value2)
-			computer.Next()
+	case 2: // MUL
+		value1 := computer.ReadNextGivenMode(opcode.Modes[0])
+		value2 := computer.ReadNextGivenMode(opcode.Modes[1])
+		computer.WriteNextGivenMode(opcode.Modes[2], value1*value2)
+		computer.Next()
 
-		case 2: // MUL
-			value1 := computer.ReadNextGivenMode(opcode.Modes[0])
-			value2 := computer.ReadNextGivenMode(opcode.Modes[1])
-			computer.WriteNextGivenMode(opcode.Modes[2], value1*value2)
-			computer.Next()
+	case 3: // GET
+		var input int
 
-		case 3: // GET
-			var input int
-
-			if computer.InBuffer == nil {
-				_, err := fmt.Scan(&input)
-				if err != nil {
-					panic(err)
-				}
-			} else {
-				buffer, ok := <-computer.InBuffer
-				if !ok {
-					panic("Input buffer is empty")
-				}
-
-				input = buffer
+		if computer.InBuffer == nil {
+			_, err := fmt.Scan(&input)
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			buffer, ok := <-computer.InBuffer
+			if !ok {
+				panic("Input buffer is empty")
 			}
 
-			computer.WriteNextGivenMode(opcode.Modes[0], input)
-			computer.Next()
-
-		case 4: // SHW
-			value := computer.ReadNextGivenMode(opcode.Modes[0])
-			if computer.OutBuffer == nil {
-				fmt.Println(value)
-			} else {
-				computer.OutBuffer <- value
-				//fmt.Println(value)
-			}
-			computer.Next()
-
-		case 5: // JIT
-			check := computer.ReadNextGivenMode(opcode.Modes[0])
-			position := computer.ReadNextGivenMode(opcode.Modes[1])
-			if check != 0 {
-				computer.Jump(position)
-			} else {
-				computer.Next()
-			}
-
-		case 6: // JIF
-			check := computer.ReadNextGivenMode(opcode.Modes[0])
-			position := computer.ReadNextGivenMode(opcode.Modes[1])
-			if check == 0 {
-				computer.Jump(position)
-			} else {
-				computer.Next()
-			}
-
-		case 7: // LST
-			value1 := computer.ReadNextGivenMode(opcode.Modes[0])
-			value2 := computer.ReadNextGivenMode(opcode.Modes[1])
-			if value1 < value2 {
-				computer.WriteNextGivenMode(opcode.Modes[2], 1)
-			} else {
-				computer.WriteNextGivenMode(opcode.Modes[2], 0)
-			}
-
-			computer.Next()
-
-		case 8: // EQT
-			value1 := computer.ReadNextGivenMode(opcode.Modes[0])
-			value2 := computer.ReadNextGivenMode(opcode.Modes[1])
-			if value1 == value2 {
-				computer.WriteNextGivenMode(opcode.Modes[2], 1)
-			} else {
-				computer.WriteNextGivenMode(opcode.Modes[2], 0)
-			}
-
-			computer.Next()
-
-		case 99:
-			halt = true
-//			computer.Halted <-true
-
-		default:
-			panic(fmt.Sprintf("Invalid opcode: %d", opcode))
+			input = buffer
 		}
 
-		if halt {
+		computer.WriteNextGivenMode(opcode.Modes[0], input)
+		computer.Next()
+
+	case 4: // SHW
+		value := computer.ReadNextGivenMode(opcode.Modes[0])
+		if computer.OutBuffer == nil {
+			fmt.Println(value)
+		} else {
+			computer.OutBuffer <- value
+			//fmt.Println(value)
+		}
+		computer.Next()
+
+	case 5: // JIT
+		check := computer.ReadNextGivenMode(opcode.Modes[0])
+		position := computer.ReadNextGivenMode(opcode.Modes[1])
+		if check != 0 {
+			computer.Jump(position)
+		} else {
+			computer.Next()
+		}
+
+	case 6: // JIF
+		check := computer.ReadNextGivenMode(opcode.Modes[0])
+		position := computer.ReadNextGivenMode(opcode.Modes[1])
+		if check == 0 {
+			computer.Jump(position)
+		} else {
+			computer.Next()
+		}
+
+	case 7: // LST
+		value1 := computer.ReadNextGivenMode(opcode.Modes[0])
+		value2 := computer.ReadNextGivenMode(opcode.Modes[1])
+		if value1 < value2 {
+			computer.WriteNextGivenMode(opcode.Modes[2], 1)
+		} else {
+			computer.WriteNextGivenMode(opcode.Modes[2], 0)
+		}
+
+		computer.Next()
+
+	case 8: // EQT
+		value1 := computer.ReadNextGivenMode(opcode.Modes[0])
+		value2 := computer.ReadNextGivenMode(opcode.Modes[1])
+		if value1 == value2 {
+			computer.WriteNextGivenMode(opcode.Modes[2], 1)
+		} else {
+			computer.WriteNextGivenMode(opcode.Modes[2], 0)
+		}
+
+		computer.Next()
+
+	case 99:
+		computer.Halted = true
+
+	default:
+		panic(fmt.Sprintf("Invalid opcode: %d", opcode))
+	}
+}
+
+func (computer *Computer) StepUntil(opcodes ...int) int {
+	for {
+		nextOpcode := computer.ReadNextOpcode()
+		for _, opcode := range opcodes {
+			if opcode == nextOpcode.Value {
+				return opcode
+			}
+		}
+
+		computer.Step()
+	}
+}
+
+func (computer *Computer) Run() []int {
+	for {
+		computer.Step()
+
+		if computer.Halted {
 			break
 		}
 	}
@@ -301,6 +315,7 @@ func (computer *Computer) Run() []int {
 func (computer *Computer) Reset() {
 	computer.Position = 0
 	computer.Memory = save(computer.Codes)
+	computer.Halted = false
 }
 
 func (computer *Computer) Load(program string) {
