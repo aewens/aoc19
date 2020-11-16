@@ -206,3 +206,24 @@ func TestLoopingThrusterSignal(t *testing.T) {
 		}
 	}
 }
+
+func TestMostVisibleAsteroids(t *testing.T) {
+	testMap := make(chan string)
+	go func() {
+		testMap <- ".#..#"
+		testMap <- "....."
+		testMap <- "#####"
+		testMap <- "....#"
+		testMap <- "...##"
+		close(testMap)
+	}()
+
+	testResult := 8
+
+	asteroidMap := BuildAsteroidMap(testMap)
+	result := MostVisibleAsteroids(asteroidMap)
+
+	if result != testResult {
+		t.Fatalf("Expected %d, got %d", testResult, result)
+	}
+}
