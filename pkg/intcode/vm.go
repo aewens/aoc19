@@ -359,6 +359,7 @@ func (computer *Computer) Run() map[int]int {
 
 func (computer *Computer) Reset() {
 	computer.Position = 0
+	computer.RPosition = 0
 	computer.Memory = createMemoryMap(computer.Codes)
 	computer.Halted = false
 }
