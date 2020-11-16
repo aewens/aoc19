@@ -18,6 +18,16 @@ func Solution8(lines chan string) {
 
 	fewestZeros := -1
 	fewestZeroCode := -1
+	
+	finalImageData := [][]int{}
+	for h := 0; h < height; h++ {
+		row := []int{}
+		for w := 0; w < width; w++ {
+			row = append(row, -1)
+		}
+		finalImageData = append(finalImageData, row)
+	}
+
 	for layer := 0; layer < layerCount; layer++ {
 		layerPosition := layer * layerSize
 		layerData := imageData[layerPosition:layerPosition+layerSize]
@@ -25,8 +35,9 @@ func Solution8(lines chan string) {
 		zeros := 0
 		ones := 0
 		twos := 0
-		for _, rawDigit := range Separate(layerData, "") {
+		for r, rawDigit := range Separate(layerData, "") {
 			digit := utilities.StringToInt(rawDigit)
+
 			switch digit {
 			case 0:
 				zeros = zeros + 1
@@ -37,6 +48,13 @@ func Solution8(lines chan string) {
 			default:
 				panic("Invalid digit")
 			}
+
+			x := r % width
+			y := r / width
+			pixel := finalImageData[y][x]
+			if pixel == -1 || pixel == 2 {
+				finalImageData[y][x] = digit
+			}
 		}
 
 		if fewestZeros == -1 || zeros < fewestZeros {
@@ -46,4 +64,17 @@ func Solution8(lines chan string) {
 	}
 
 	Display(1, fewestZeroCode)
+	for h := 0; h < height; h++ {
+		row := ""
+		for w := 0; w < width; w++ {
+			pixel := finalImageData[h][w]
+			if pixel == 0 {
+				row = row + " "
+			} else {
+				row = row + "@"
+			}
+		}
+
+		Display(2, row)
+	}
 }
