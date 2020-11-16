@@ -18,7 +18,7 @@ func Solution8(lines chan string) {
 
 	fewestZeros := -1
 	fewestZeroCode := -1
-	
+
 	finalImageData := [][]int{}
 	for h := 0; h < height; h++ {
 		row := []int{}
@@ -30,7 +30,7 @@ func Solution8(lines chan string) {
 
 	for layer := 0; layer < layerCount; layer++ {
 		layerPosition := layer * layerSize
-		layerData := imageData[layerPosition:layerPosition+layerSize]
+		layerData := imageData[layerPosition : layerPosition+layerSize]
 
 		zeros := 0
 		ones := 0
