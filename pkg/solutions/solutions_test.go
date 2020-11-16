@@ -221,7 +221,7 @@ func TestMostVisibleAsteroids(t *testing.T) {
 	testResult := 8
 
 	asteroidMap := BuildAsteroidMap(testMap)
-	result := MostVisibleAsteroids(asteroidMap)
+	result, _ := MostVisibleAsteroids(asteroidMap)
 
 	if result != testResult {
 		t.Fatalf("Expected %d, got %d", testResult, result)
