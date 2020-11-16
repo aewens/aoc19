@@ -9,8 +9,9 @@ import (
 
 type Computer struct {
 	Position  int
+	RPosition int
 	Codes     []int
-	Memory    []int
+	Memory    map[int]int
 	InBuffer  chan int
 	OutBuffer chan int
 	Halted    bool
@@ -21,10 +22,12 @@ type Opcode struct {
 	Modes []int
 }
 
-func save(original []int) []int {
-	backup := make([]int, len(original))
-	copy(backup, original)
-	return backup
+func createMemoryMap(codes []int) map[int]int {
+	memory := make(map[int]int)
+	for c, code := range codes {
+		memory[c] = code
+	}
+	return memory
 }
 
 func Parser(program string) []int {
@@ -41,13 +44,14 @@ func Parser(program string) []int {
 
 func New(program string) *Computer {
 	codes := Parser(program)
-	memory := save(codes)
+	memory := createMemoryMap(codes)
 
 	var inBuffer chan int = nil
 	var outBuffer chan int = nil
 
 	return &Computer{
 		Position:  0,
+		RPosition: 0,
 		Codes:     codes,
 		Memory:    memory,
 		InBuffer:  inBuffer,
@@ -58,10 +62,11 @@ func New(program string) *Computer {
 
 func BufferedNew(program string) *Computer {
 	codes := Parser(program)
-	memory := save(codes)
+	memory := createMemoryMap(codes)
 
 	return &Computer{
 		Position:  0,
+		RPosition: 0,
 		Codes:     codes,
 		Memory:    memory,
 		InBuffer:  make(chan int),
@@ -71,19 +76,22 @@ func BufferedNew(program string) *Computer {
 }
 
 func (computer *Computer) CheckAddress(address int) {
-	if address < 0 || address >= len(computer.Memory) {
-		panic(fmt.Sprintf("Address %d is out of bounds", address))
+	_, ok := computer.Memory[address]
+	if !ok {
+		computer.Memory[address] = 0
 	}
 }
 
 func (computer *Computer) ReadMemory(address int) int {
 	computer.CheckAddress(address)
+	//fmt.Println("R", address, computer.Memory[address])
 	return computer.Memory[address]
 }
 
 func (computer *Computer) WriteMemory(address int, value int) {
 	computer.CheckAddress(address)
 	computer.Memory[address] = value
+	//fmt.Println("W", address, computer.Memory[address])
 }
 
 func (computer *Computer) Next() {
@@ -95,8 +103,18 @@ func (computer *Computer) Jump(address int) {
 	computer.Position = address
 }
 
+func (computer *Computer) RelativeJump(address int) {
+	relativeAddress := computer.RPosition + address
+	computer.CheckAddress(relativeAddress)
+	computer.RPosition = relativeAddress
+}
+
 func (computer *Computer) Read() int {
 	return computer.ReadMemory(computer.Position)
+}
+
+func (computer *Computer) ReadRelative(address int) int {
+	return computer.ReadMemory(computer.RPosition + address)
 }
 
 func (computer *Computer) ReadNext() int {
@@ -104,8 +122,17 @@ func (computer *Computer) ReadNext() int {
 	return computer.Read()
 }
 
+func (computer *Computer) ReadRelativeNext() int {
+	address := computer.ReadNext()
+	return computer.ReadRelative(address)
+}
+
 func (computer *Computer) ReadFromNext() int {
 	return computer.ReadMemory(computer.ReadNext())
+}
+
+func (computer *Computer) ReadFromRelativeNext() int {
+	return computer.ReadMemory(computer.ReadRelativeNext())
 }
 
 func (computer *Computer) ReadNextGivenMode(mode int) int {
@@ -116,6 +143,9 @@ func (computer *Computer) ReadNextGivenMode(mode int) int {
 	case 1:
 		return computer.ReadNext()
 
+	case 2:
+		return computer.ReadRelativeNext()
+
 	default:
 		panic(fmt.Sprintf("Unknown mode: %d", mode))
 	}
@@ -125,6 +155,11 @@ func (computer *Computer) WriteToNext(value int) {
 	computer.WriteMemory(computer.ReadNext(), value)
 }
 
+func (computer *Computer) WriteToRelative(value int) {
+	address := computer.RPosition + computer.ReadNext()
+	computer.WriteMemory(address, value)
+}
+
 func (computer *Computer) WriteNextGivenMode(mode int, value int) {
 	switch mode {
 	case 0:
@@ -132,6 +167,9 @@ func (computer *Computer) WriteNextGivenMode(mode int, value int) {
 
 	case 1:
 		panic("Illegal mode for write operations")
+
+	case 2:
+		computer.WriteToRelative(value)
 
 	default:
 		panic(fmt.Sprintf("Unknown mode: %d", mode))
@@ -165,6 +203,7 @@ func (computer *Computer) ReadOpcode(value int) *Opcode {
 	expectedModes[6] = 2
 	expectedModes[7] = 3
 	expectedModes[8] = 3
+	expectedModes[9] = 1
 
 	expecting, ok := expectedModes[opcode]
 	if !ok {
@@ -194,7 +233,7 @@ func (computer *Computer) ReadNextOpcode() *Opcode {
 
 func (computer *Computer) Step() {
 	opcode := computer.ReadNextOpcode()
-	//fmt.Println(opcode)
+	//fmt.Println(computer.Position, opcode)
 
 	switch opcode.Value {
 	case 1: // ADD
@@ -279,6 +318,12 @@ func (computer *Computer) Step() {
 
 		computer.Next()
 
+	case 9: // ARP
+		position := computer.ReadNextGivenMode(opcode.Modes[0])
+		computer.RelativeJump(position)
+
+		computer.Next()
+
 	case 99:
 		computer.Halted = true
 
@@ -300,7 +345,7 @@ func (computer *Computer) StepUntil(opcodes ...int) int {
 	}
 }
 
-func (computer *Computer) Run() []int {
+func (computer *Computer) Run() map[int]int {
 	for {
 		computer.Step()
 
@@ -314,7 +359,7 @@ func (computer *Computer) Run() []int {
 
 func (computer *Computer) Reset() {
 	computer.Position = 0
-	computer.Memory = save(computer.Codes)
+	computer.Memory = createMemoryMap(computer.Codes)
 	computer.Halted = false
 }
 

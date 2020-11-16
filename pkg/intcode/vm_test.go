@@ -95,4 +95,51 @@ func TestComputer(t *testing.T) {
 			t.Fatalf("Program %d was read incorrectly", p+2)
 		}
 	}
+
+	outputPrograms := []string{
+		"1102,34915192,34915192,7,4,7,99,0",
+		"104,1125899906842624,99",
+	}
+
+	outputResults := []int{
+		1219070632396864,
+		1125899906842624,
+	}
+
+	computer = BufferedNew(
+		"109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99",
+	)
+	go computer.RunAndReset()
+
+	result := []int{}
+	for {
+		output, ok := <-computer.OutBuffer
+		if !ok || output == 99 {
+			break
+		}
+		result = append(result, output)
+	}
+
+	outputResult := []int{
+		109, 1, 204, -1, 1001, 100, 1, 100, 1008, 100, 16, 101, 1006, 101, 0, 99,
+	}
+
+	for r, res := range result {
+		if res != outputResult[r] {
+			t.Fatal("Output program 1 was read incorrectly")
+		}
+	}
+
+	for op := 0; op < len(outputPrograms); op++ {
+		outputProgram := outputPrograms[op]
+
+		computer.Load(outputProgram)
+		go computer.RunAndReset()
+
+		result := computer.Output()
+		if result != outputResults[op] {
+			t.Fatalf("Output program %d was read incorrectly", op+1)
+		}
+	}
+
 }
