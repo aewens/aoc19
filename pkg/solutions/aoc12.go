@@ -25,6 +25,20 @@ type System struct {
 	Forces []*Force
 }
 
+func gcd(a int, b int) int {
+	for b != 0 {
+		t := b
+		b = a % b
+		a = t
+	}
+	return a
+}
+
+func lcm(a int, b int) int {
+	result := a * b / gcd(a, b)
+	return result
+}
+
 func parseCoordinates(entry string) *Moon {
 	moon := &Moon{}
 	entrySansBrackets := entry[1 : len(entry)-1]
@@ -72,6 +86,37 @@ func ApplyGravity(system *System) {
 	}
 }
 
+func ApplyAxisGravity(system *System, axis int) {
+	for m, moon := range system.Moons {
+		for mm, mMoon := range system.Moons {
+			if m == mm {
+				continue
+			}
+
+			switch axis {
+			case 0:
+				if mMoon.X > moon.X {
+					system.Forces[m].X = system.Forces[m].X + 1
+				} else if mMoon.X < moon.X {
+					system.Forces[m].X = system.Forces[m].X - 1
+				}
+			case 1:
+				if mMoon.Y > moon.Y {
+					system.Forces[m].Y = system.Forces[m].Y + 1
+				} else if mMoon.Y < moon.Y {
+					system.Forces[m].Y = system.Forces[m].Y - 1
+				}
+			case 2:
+				if mMoon.Z > moon.Z {
+					system.Forces[m].Z = system.Forces[m].Z + 1
+				} else if mMoon.Z < moon.Z {
+					system.Forces[m].Z = system.Forces[m].Z - 1
+				}
+			}
+		}
+	}
+}
+
 func ApplyVelocity(system *System) {
 	for f, force := range system.Forces {
 		moon := system.Moons[f]
@@ -81,9 +126,71 @@ func ApplyVelocity(system *System) {
 	}
 }
 
+func ApplyAxisVelocity(system *System, axis int) {
+	for f, force := range system.Forces {
+		moon := system.Moons[f]
+		switch axis {
+		case 0:
+			moon.X = moon.X + force.X
+		case 1:
+			moon.Y = moon.Y + force.Y
+		case 2:
+			moon.Z = moon.Z + force.Z
+		}
+	}
+}
+
 func MoonStep(system *System) {
 	ApplyGravity(system)
 	ApplyVelocity(system)
+}
+
+func MoonAxisStep(system *System, axis int) {
+	ApplyAxisGravity(system, axis)
+	ApplyAxisVelocity(system, axis)
+}
+
+func CheckAxis(system *System, init *System, axis int) bool {
+	valid := true
+	for m, moon := range system.Moons {
+		force := system.Forces[m]
+		initMoon := init.Moons[m]
+		initForce := init.Forces[m]
+
+		switch axis {
+		case 0:
+			if moon.X != initMoon.X || force.X != initForce.X {
+				valid = false
+			}
+		case 1:
+			if moon.Y != initMoon.Y || force.Y != initForce.Y {
+				valid = false
+			}
+		case 2:
+			if moon.Z != initMoon.Z || force.Z != initForce.Z {
+				valid = false
+			}
+		}
+
+		if !valid {
+			break
+		}
+	}
+
+	return valid
+}
+
+func SearchAxis(system *System, init *System, axis int) int {
+	steps := 0
+	for {
+		MoonAxisStep(system, axis)
+		steps = steps + 1
+
+		match := CheckAxis(system, init, axis)
+		if match {
+			return steps
+		}
+	}
 }
 
 func CalculateEnergy(system *System) int {
@@ -137,11 +244,17 @@ func CalculateEnergy(system *System) int {
 func Solution12(lines chan string) {
 	moons := []*Moon{}
 	forces := []*Force{}
+
+	initMoons := []*Moon{}
+	initForces := []*Force{}
 	for line := range lines {
 		moon := parseCoordinates(line)
-
 		moons = append(moons, moon)
 		forces = append(forces, &Force{})
+
+		initMoon := parseCoordinates(line)
+		initMoons = append(initMoons, initMoon)
+		initForces = append(initForces, &Force{})
 	}
 
 	system := &System{
@@ -149,10 +262,22 @@ func Solution12(lines chan string) {
 		Forces: forces,
 	}
 
+	initSystem := &System{
+		Moons:  initMoons,
+		Forces: initForces,
+	}
+
 	for s := 0; s < 1000; s++ {
 		MoonStep(system)
 	}
-
 	energy := CalculateEnergy(system)
 	Display(1, energy)
+
+	cycles := []int{}
+	for a := 0; a < 3; a++ {
+		steps := SearchAxis(system, initSystem, a)
+		cycles = append(cycles, steps+1000)
+	}
+
+	Display(2, lcm(cycles[0], lcm(cycles[1], cycles[2])))
 }
