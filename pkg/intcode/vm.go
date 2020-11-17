@@ -14,6 +14,8 @@ type Computer struct {
 	Memory    map[int]int
 	InBuffer  chan int
 	OutBuffer chan int
+	InQueue   []int
+	OutQueue  []int
 	Halted    bool
 }
 
@@ -49,6 +51,9 @@ func New(program string) *Computer {
 	var inBuffer chan int = nil
 	var outBuffer chan int = nil
 
+	var inQueue []int = nil
+	var outQueue []int = nil
+
 	return &Computer{
 		Position:  0,
 		RPosition: 0,
@@ -56,6 +61,8 @@ func New(program string) *Computer {
 		Memory:    memory,
 		InBuffer:  inBuffer,
 		OutBuffer: outBuffer,
+		InQueue:   inQueue,
+		OutQueue:  outQueue,
 		Halted:    false,
 	}
 }
@@ -64,6 +71,9 @@ func BufferedNew(program string) *Computer {
 	codes := Parser(program)
 	memory := createMemoryMap(codes)
 
+	var inQueue []int = nil
+	var outQueue []int = nil
+
 	return &Computer{
 		Position:  0,
 		RPosition: 0,
@@ -71,6 +81,28 @@ func BufferedNew(program string) *Computer {
 		Memory:    memory,
 		InBuffer:  make(chan int),
 		OutBuffer: make(chan int),
+		InQueue:   inQueue,
+		OutQueue:  outQueue,
+		Halted:    false,
+	}
+}
+
+func QueuedNew(program string) *Computer {
+	codes := Parser(program)
+	memory := createMemoryMap(codes)
+
+	var inBuffer chan int = nil
+	var outBuffer chan int = nil
+
+	return &Computer{
+		Position:  0,
+		RPosition: 0,
+		Codes:     codes,
+		Memory:    memory,
+		InBuffer:  inBuffer,
+		OutBuffer: outBuffer,
+		InQueue:   []int{},
+		OutQueue:  []int{},
 		Halted:    false,
 	}
 }
@@ -251,18 +283,21 @@ func (computer *Computer) Step() {
 	case 3: // GET
 		var input int
 
-		if computer.InBuffer == nil {
+		if computer.InBuffer == nil && computer.InQueue == nil {
 			_, err := fmt.Scan(&input)
 			if err != nil {
 				panic(err)
 			}
-		} else {
+		} else if computer.InBuffer != nil {
 			buffer, ok := <-computer.InBuffer
 			if !ok {
 				panic("Input buffer is empty")
 			}
 
 			input = buffer
+		} else if computer.InQueue != nil {
+			input = computer.InQueue[len(computer.InQueue)-1]
+			computer.InQueue = computer.InQueue[:len(computer.InQueue)-1]
 		}
 
 		computer.WriteNextGivenMode(opcode.Modes[0], input)
@@ -270,11 +305,12 @@ func (computer *Computer) Step() {
 
 	case 4: // SHW
 		value := computer.ReadNextGivenMode(opcode.Modes[0])
-		if computer.OutBuffer == nil {
+		if computer.OutBuffer == nil && computer.OutQueue == nil {
 			fmt.Println(value)
-		} else {
+		} else if computer.OutBuffer != nil {
 			computer.OutBuffer <- value
-			//fmt.Println(value)
+		} else if computer.OutQueue != nil {
+			computer.OutQueue = append(computer.OutQueue, value)
 		}
 		computer.Next()
 
@@ -370,17 +406,27 @@ func (computer *Computer) Load(program string) {
 }
 
 func (computer *Computer) Input(value int) {
-	if computer.InBuffer == nil {
+	if computer.InBuffer == nil && computer.InQueue == nil {
 		panic("Cannot input without buffers")
+	} else if computer.InBuffer != nil {
+		computer.InBuffer <- value
+	} else if computer.InQueue != nil {
+		computer.InQueue = append(computer.InQueue, value)
 	}
-	computer.InBuffer <- value
 }
 
 func (computer *Computer) Output() int {
-	if computer.OutBuffer == nil {
-		panic("Cannot output without buffers")
+	if computer.OutBuffer != nil {
+		return <-computer.OutBuffer
 	}
-	return <-computer.OutBuffer
+	
+	if computer.OutQueue != nil {
+		output := computer.OutQueue[len(computer.OutQueue)-1]
+		computer.OutQueue = computer.OutQueue[:len(computer.OutQueue)-1]
+		return output
+	}
+
+	panic("Cannot output without buffers")
 }
 
 func (computer *Computer) RunAndReset() {
