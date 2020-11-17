@@ -227,3 +227,85 @@ func TestMostVisibleAsteroids(t *testing.T) {
 		t.Fatalf("Expected %d, got %d", testResult, result)
 	}
 }
+
+func TestMoonStep(t *testing.T) {
+	moons := []*Moon{
+		&Moon{-1, 0, 2},
+		&Moon{2, -10, -7},
+		&Moon{4, -8, 8},
+		&Moon{3, 5, -1},
+	}
+
+	forces := []*Force{}
+	for m := 0; m < len(moons); m++ {
+		forces = append(forces, &Force{})
+	}
+
+	system := &System{
+		Moons:  moons,
+		Forces: forces,
+	}
+
+	for s := 0; s < 10; s++ {
+		MoonStep(system)
+	}
+
+	expectedMoons := []*Moon{
+		&Moon{2, 1, -3},
+		&Moon{1, -8, 0},
+		&Moon{3, -6, 1},
+		&Moon{2, 0, 4},
+	}
+
+	for e := 0; e < len(expectedMoons); e++ {
+		moon := system.Moons[e]
+		expectedMoon := expectedMoons[e]
+		Display(0, moon)
+		Display(0, system.Forces[e])
+
+		if moon.X != expectedMoon.X {
+			t.Fatalf("Physics not emulated correctly on X: %d != %d", moon.X,
+				expectedMoon.X)
+		}
+
+		if moon.Y != expectedMoon.Y {
+			t.Fatalf("Physics not emulated correctly on Y: %d != %d", moon.Y,
+				expectedMoon.Y)
+		}
+
+		if moon.Z != expectedMoon.Z {
+			t.Fatalf("Physics not emulated correctly on Z: %d != %d", moon.Z,
+				expectedMoon.Z)
+		}
+	}
+}
+
+func TestCalculateEnergy(t *testing.T) {
+	moons := []*Moon{
+		&Moon{-1, 0, 2},
+		&Moon{2, -10, -7},
+		&Moon{4, -8, 8},
+		&Moon{3, 5, -1},
+	}
+
+	forces := []*Force{}
+	for m := 0; m < len(moons); m++ {
+		forces = append(forces, &Force{})
+	}
+
+	system := &System{
+		Moons:  moons,
+		Forces: forces,
+	}
+
+	for s := 0; s < 10; s++ {
+		MoonStep(system)
+	}
+
+	energy := CalculateEnergy(system)
+	expectedEnergy := 179
+
+	if energy != expectedEnergy {
+		t.Fatalf("Energy not calculated correctly: %d", energy)
+	}
+}
