@@ -419,7 +419,7 @@ func (computer *Computer) Output() int {
 	if computer.OutBuffer != nil {
 		return <-computer.OutBuffer
 	}
-	
+
 	if computer.OutQueue != nil {
 		output := computer.OutQueue[len(computer.OutQueue)-1]
 		computer.OutQueue = computer.OutQueue[:len(computer.OutQueue)-1]

@@ -104,7 +104,7 @@ func (robot *Robot) Step(ship *Ship) bool {
 func (robot *Robot) Display(ship *Ship) {
 	//Clear()
 
-	for y := ship.MinY; y < ship.MaxY + 1; y++ {
+	for y := ship.MinY; y < ship.MaxY+1; y++ {
 		row := ""
 		for x := ship.MinX; x < ship.MaxX; x++ {
 			panel := ship.Panels[y][x]
