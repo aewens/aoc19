@@ -33,6 +33,10 @@ func ReadLines(path string, lines chan string) {
 	}
 }
 
+func Clear() {
+	fmt.Print("\033[H\033[2J")
+}
+
 func Display(answer int, text interface{}) {
 	fmt.Printf("[%d] %#v\n", answer, text)
 }
