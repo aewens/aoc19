@@ -18,27 +18,67 @@ type Arcade struct {
 	Computer *intcode.Computer
 	Monitor  map[int]map[int]string
 	Tiles    []*Tile
+	Ball     *Tile
+	Paddle   *Tile
 	Width    int
 	Height   int
+	Score    int
+	Auto     bool
 }
 
 func (arcade *Arcade) Display() {
 	Clear()
+	Display(10, arcade.Score)
 	for y := 0; y < arcade.Height; y++ {
 		row := ""
-		for x := 0; y < arcade.Width; x++ {
+		for x := 0; x < arcade.Width; x++ {
 			row = row + arcade.Monitor[y][x]
 		}
 
-		Display(0, row)
+		Display(20, row)
 	}
 }
 
-func (arcade *Arcade) Run() {
+func (arcade *Arcade) Reset() {
+	arcade.Computer.Reset()
+	arcade.Monitor = make(map[int]map[int]string)
+	arcade.Tiles = []*Tile{}
+	arcade.Width = 0
+	arcade.Height = 0
+	arcade.Score = 0
+}
+
+func (arcade *Arcade) Run(display bool) {
 	arcade.Tiles = []*Tile{}
 	for {
 		action := arcade.Computer.StepUntil(3, 4, 99)
 		if action == 3 || action == 99 {
+			if action == 3 && display {
+				if arcade.Auto {
+					if arcade.Ball.X < arcade.Paddle.X {
+						arcade.Computer.Input(-1)
+					} else if arcade.Ball.X > arcade.Paddle.X {
+						arcade.Computer.Input(1)
+					} else {
+						arcade.Computer.Input(0)
+					}
+				} else {
+					arcade.Display()
+					joystick := Input("(a/s/d)> ")
+					switch joystick {
+					case "a":
+						arcade.Computer.Input(-1)
+					case "s":
+						arcade.Computer.Input(0)
+					case "d":
+						arcade.Computer.Input(1)
+					default:
+						panic("Invalid joystick action")
+					}
+				}
+				arcade.Computer.Step()
+				continue
+			}
 			break
 		}
 
@@ -72,6 +112,11 @@ func (arcade *Arcade) Run() {
 			break
 		}
 
+		if tile.X == -1 && tile.Y == 0 {
+			arcade.Score = tile.ID
+			continue
+		}
+
 		arcade.Tiles = append(arcade.Tiles, tile)
 
 		_, ok := arcade.Monitor[tile.Y]
@@ -87,10 +132,16 @@ func (arcade *Arcade) Run() {
 			arcade.Monitor[tile.Y][tile.X] = "#"
 		case 3:
 			arcade.Monitor[tile.Y][tile.X] = "-"
+			arcade.Paddle = tile
 		case 4:
 			arcade.Monitor[tile.Y][tile.X] = "@"
+			arcade.Ball = tile
 		}
 	}
+}
+
+func (arcade *Arcade) InsertQuarters() {
+	arcade.Computer.Memory[0] = 2
 }
 
 func Solution13(lines chan string) {
@@ -100,9 +151,10 @@ func Solution13(lines chan string) {
 	arcade := &Arcade{
 		Computer: computer,
 		Monitor:  make(map[int]map[int]string),
+		Auto:     true,
 	}
 
-	arcade.Run()
+	arcade.Run(false)
 
 	blocks := 0
 	for _, tile := range arcade.Tiles {
@@ -111,4 +163,29 @@ func Solution13(lines chan string) {
 		}
 	}
 	Display(1, blocks)
+
+	arcade.Reset()
+	arcade.InsertQuarters()
+	arcade.Run(true)
+	Display(2, arcade.Score)
+
+	for {
+		Display(99, "Play?")
+		play := Input("(y/n)> ")
+		exit := false
+		switch play {
+		case "y":
+			arcade.Auto = false
+			arcade.Reset()
+			arcade.InsertQuarters()
+			arcade.Run(true)
+		case "n":
+			exit = true
+			arcade.Reset()
+		}
+
+		if exit {
+			break
+		}
+	}
 }
