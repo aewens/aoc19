@@ -41,6 +41,18 @@ func Display(answer int, text interface{}) {
 	fmt.Printf("[%d] %#v\n", answer, text)
 }
 
+func Input(prompt string) string {
+	var input string
+
+	fmt.Print(prompt)
+	_, err := fmt.Scan(&input)
+	if err != nil {
+		panic(err)
+	}
+
+	return input
+}
+
 func FromCSV(source string) []string {
 	return strings.Split(source, ",")
 }
